@@ -1,0 +1,38 @@
+package com.hireblind.processing.entity;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "incoming_messages")
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class IncomingMessage {
+
+    @Id
+    private UUID id;
+
+    private String sourceMessageId;
+    private OffsetDateTime receivedAt;
+    
+    // We will clear this post-processing
+    private String senderEmail;
+    
+    // We will clear this post-processing
+    private String rawBody;
+    
+    private String extractedText;
+    private String status; // PENDING, PROCESSED, FAILED
+    private OffsetDateTime createdAt;
+
+}

@@ -26,6 +26,10 @@ audit:
   service:
     url: ${AUDIT_SERVICE_URL:http://localhost:8084}
 
+campaign:
+  service:
+    url: ${CAMPAIGN_SERVICE_URL:http://localhost:8082}
+
 management:
   endpoints:
     web:
@@ -35,3 +39,17 @@ management:
 logging:
   level:
     com.hireblind.processing: DEBUG
+
+llm:
+  api:
+    key: ${LLM_API_KEY:}
+    model:
+      name: ${LLM_MODEL_NAME:gpt-4o-mini}
+
+imap:
+  host: ${IMAP_HOST:imap.example.com}
+  port: ${IMAP_PORT:993}
+  username: ${IMAP_USERNAME:ingest@hireblind.com}
+  password: ${IMAP_PASSWORD:secret}
+  polling:
+    fixed-delay: 300000 # 5 minutes

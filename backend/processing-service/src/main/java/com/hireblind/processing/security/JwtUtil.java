@@ -26,4 +26,14 @@ public class JwtUtil {
                 .parseSignedClaims(token)
                 .getPayload();
     }
+
+    public String generateToken(String subject, String role) {
+        return Jwts.builder()
+                .subject(subject)
+                .claim("role", "ROLE_" + role)
+                .issuedAt(new java.util.Date())
+                .expiration(new java.util.Date(System.currentTimeMillis() + 3600000)) // 1 hour
+                .signWith(signingKey)
+                .compact();
+    }
 }

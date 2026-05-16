@@ -7,5 +7,8 @@ public enum ProcessingStatus {
     SCORED,
     REVIEWED,
     REVEALED,
-    REJECTED
+    REJECTED,
+    PROCESSING,
+    COMPLETED,
+    FAILED
 }

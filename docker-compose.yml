@@ -29,7 +29,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_iam
       SPRING_DATASOURCE_USERNAME: hireblind
       SPRING_DATASOURCE_PASSWORD: hireblind_dev
-      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8081
     depends_on:
       postgres:
@@ -45,7 +45,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_campaign
       SPRING_DATASOURCE_USERNAME: hireblind
       SPRING_DATASOURCE_PASSWORD: hireblind_dev
-      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8082
     depends_on:
       postgres:
@@ -61,9 +61,16 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_processing
       SPRING_DATASOURCE_USERNAME: hireblind
       SPRING_DATASOURCE_PASSWORD: hireblind_dev
-      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      JWT_SECRET: ${JWT_SECRET}
       AUDIT_SERVICE_URL: http://audit-service:8084
+      CAMPAIGN_SERVICE_URL: http://campaign-service:8082
       SERVER_PORT: 8083
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL_NAME: ${LLM_MODEL_NAME}
+      IMAP_HOST: ${IMAP_HOST}
+      IMAP_PORT: ${IMAP_PORT}
+      IMAP_USERNAME: ${IMAP_USERNAME}
+      IMAP_PASSWORD: ${IMAP_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,7 +85,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_audit
       SPRING_DATASOURCE_USERNAME: hireblind
       SPRING_DATASOURCE_PASSWORD: hireblind_dev
-      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8084
     depends_on:
       postgres:
@@ -95,7 +102,7 @@ services:
       CAMPAIGN_SERVICE_URL: http://campaign-service:8082
       PROCESSING_SERVICE_URL: http://processing-service:8083
       AUDIT_SERVICE_URL: http://audit-service:8084
-      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8080
     depends_on:
       - iam-service

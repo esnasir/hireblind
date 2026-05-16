@@ -52,6 +52,9 @@ public class ScoringResult {
     @Column(name = "llm_response_version")
     private String llmResponseVersion;
 
+    @Column(name = "confidence_score")
+    private BigDecimal confidenceScore;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -96,6 +99,9 @@ public class ScoringResult {
 
     public String getLlmResponseVersion() { return llmResponseVersion; }
     public void setLlmResponseVersion(String v) { this.llmResponseVersion = v; }
+
+    public BigDecimal getConfidenceScore() { return confidenceScore; }
+    public void setConfidenceScore(BigDecimal c) { this.confidenceScore = c; }
 
     public Instant getCreatedAt() { return createdAt; }
 }
