@@ -1,0 +1,64 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: iam-service
+          uri: ${IAM_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        - id: campaign-service
+          uri: ${CAMPAIGN_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/campaigns/**
+          filters:
+            - StripPrefix=1
+
+        - id: processing-service
+          uri: ${PROCESSING_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/submissions/**
+          filters:
+            - StripPrefix=1
+
+        - id: audit-service
+          uri: ${AUDIT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/audit/**
+          filters:
+            - StripPrefix=1
+
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins:
+              - "http://localhost:5173"
+              - "http://localhost:3000"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders:
+              - "*"
+            allowCredentials: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+
+logging:
+  level:
+    com.hireblind.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG

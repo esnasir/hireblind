@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: hireblind-postgres
+    environment:
+      POSTGRES_USER: hireblind
+      POSTGRES_PASSWORD: hireblind_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hireblind"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── IAM Service ─────────────────────────────────────────────
+  iam-service:
+    build: ./backend/iam-service
+    container_name: hireblind-iam
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_iam
+      SPRING_DATASOURCE_USERNAME: hireblind
+      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      SERVER_PORT: 8081
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Campaign Service ────────────────────────────────────────
+  campaign-service:
+    build: ./backend/campaign-service
+    container_name: hireblind-campaign
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_campaign
+      SPRING_DATASOURCE_USERNAME: hireblind
+      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      SERVER_PORT: 8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Processing Service ──────────────────────────────────────
+  processing-service:
+    build: ./backend/processing-service
+    container_name: hireblind-processing
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_processing
+      SPRING_DATASOURCE_USERNAME: hireblind
+      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      AUDIT_SERVICE_URL: http://audit-service:8084
+      SERVER_PORT: 8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── Audit Service ───────────────────────────────────────────
+  audit-service:
+    build: ./backend/audit-service
+    container_name: hireblind-audit
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_audit
+      SPRING_DATASOURCE_USERNAME: hireblind
+      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      SERVER_PORT: 8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── API Gateway ─────────────────────────────────────────────
+  api-gateway:
+    build: ./backend/api-gateway
+    container_name: hireblind-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      IAM_SERVICE_URL: http://iam-service:8081
+      CAMPAIGN_SERVICE_URL: http://campaign-service:8082
+      PROCESSING_SERVICE_URL: http://processing-service:8083
+      AUDIT_SERVICE_URL: http://audit-service:8084
+      JWT_SECRET: hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long
+      SERVER_PORT: 8080
+    depends_on:
+      - iam-service
+      - campaign-service
+      - processing-service
+      - audit-service
+
+volumes:
+  pgdata:
