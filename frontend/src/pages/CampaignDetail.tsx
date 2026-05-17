@@ -1,15 +1,32 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
+import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, User, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, User, FileText, ChevronRight, CheckCircle, FolderArchive, XCircle, ShieldAlert } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 
 export default function CampaignDetail() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
+
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [confirmTitle, setConfirmTitle] = React.useState('');
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/campaigns/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      setDeleteOpen(false);
+      navigate('/campaigns');
+    },
+  });
 
   const { data: campaign, isLoading: isLoadingCampaign } = useQuery({
     queryKey: ['campaign', id],
@@ -19,6 +36,15 @@ export default function CampaignDetail() {
   const { data: submissions, isLoading: isLoadingSubmissions } = useQuery({
     queryKey: ['campaign-submissions', id],
     queryFn: () => api.get(`/submissions?campaignId=${id}`).then(res => res.data),
+  });
+
+  const transitionMutation = useMutation({
+    mutationFn: (action: 'activate' | 'close' | 'archive') =>
+      api.post(`/campaigns/${id}/${action}`).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign', id] });
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    },
   });
 
   if (isLoadingCampaign) return <div className="space-y-4"><Skeleton className="h-8 w-1/3"/><Skeleton className="h-24 w-full"/></div>;
@@ -40,6 +66,40 @@ export default function CampaignDetail() {
             </div>
             <p className="text-slate-600 mt-2 max-w-3xl">{campaign.description}</p>
           </div>
+
+          {user?.role === 'ADMIN' && (
+            <div className="flex gap-2">
+              {campaign.status === 'DRAFT' && (
+                <Button 
+                  onClick={() => transitionMutation.mutate('activate')}
+                  disabled={transitionMutation.isPending}
+                  className="bg-green-600 hover:bg-green-700 text-white shadow-sm flex items-center"
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" /> Publish Campaign
+                </Button>
+              )}
+              {campaign.status === 'ACTIVE' && (
+                <Button 
+                  onClick={() => transitionMutation.mutate('close')}
+                  disabled={transitionMutation.isPending}
+                  variant="destructive"
+                  className="shadow-sm flex items-center"
+                >
+                  <XCircle className="mr-2 h-4 w-4" /> Close Campaign
+                </Button>
+              )}
+              {campaign.status === 'CLOSED' && (
+                <Button 
+                  onClick={() => transitionMutation.mutate('archive')}
+                  disabled={transitionMutation.isPending}
+                  variant="outline"
+                  className="border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center"
+                >
+                  <FolderArchive className="mr-2 h-4 w-4" /> Archive Campaign
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -106,6 +166,66 @@ export default function CampaignDetail() {
           </Table>
         )}
       </div>
+
+      {user?.role === 'ADMIN' && campaign.status === 'ARCHIVED' && (
+        <div className="mt-8 border border-red-200 rounded-xl overflow-hidden shadow-sm bg-white">
+          <div className="bg-red-50 px-5 py-4 border-b border-red-200">
+            <h3 className="text-lg font-semibold text-red-900 flex items-center">
+              <ShieldAlert className="mr-2 h-5 w-5 text-red-600" /> Danger Zone
+            </h3>
+          </div>
+          <div className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900">Delete this campaign permanently</h4>
+              <p className="text-sm text-slate-500 mt-1">
+                Once deleted, all candidate submissions, anonymized profiles, and match scores will be permanently deleted and cannot be recovered.
+              </p>
+            </div>
+            <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-medium flex items-center">
+                  Delete Campaign
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md bg-white rounded-xl shadow-2xl w-full">
+                <DialogHeader>
+                  <DialogTitle className="text-red-700 flex items-center">
+                    <ShieldAlert className="mr-2 h-5 w-5" /> Permanent Deletion Confirmation
+                  </DialogTitle>
+                  <DialogDescription className="pt-2 text-slate-600 leading-relaxed">
+                    This action is destructive and irreversible. You are deleting <strong className="text-slate-900">{campaign.title}</strong>, including all associated candidate profiles and match scores.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-3">
+                  <p className="text-sm text-slate-600 font-medium">
+                    To confirm deletion, please type the campaign title exactly:
+                  </p>
+                  <code className="block bg-slate-100 p-2 rounded text-slate-700 text-sm border font-mono">
+                    {campaign.title}
+                  </code>
+                  <input
+                    type="text"
+                    value={confirmTitle}
+                    onChange={(e) => setConfirmTitle(e.target.value)}
+                    placeholder="Type campaign title exactly"
+                    className="w-full px-3 py-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
+                <DialogFooter className="flex justify-end gap-2 mt-2">
+                  <Button variant="ghost" onClick={() => { setDeleteOpen(false); setConfirmTitle(''); }}>Cancel</Button>
+                  <Button
+                    onClick={() => deleteMutation.mutate()}
+                    disabled={confirmTitle !== campaign.title || deleteMutation.isPending}
+                    className="bg-red-600 hover:bg-red-700 text-white disabled:bg-slate-200 disabled:text-slate-400 font-medium shadow-sm"
+                  >
+                    {deleteMutation.isPending ? "Deleting..." : "Permanently Delete"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import java.util.UUID;
 @Repository
 public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     List<Submission> findByCampaignIdOrderByReceivedAtDesc(UUID campaignId);
+    List<Submission> findByCampaignIdIsNull();
     long countByCampaignId(UUID campaignId);
     long countByProcessingStatus(com.hireblind.processing.entity.ProcessingStatus status);
 }

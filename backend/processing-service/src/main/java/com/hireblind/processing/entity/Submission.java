@@ -12,7 +12,7 @@ public class Submission {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "campaign_id", nullable = false)
+    @Column(name = "campaign_id", nullable = true)
     private UUID campaignId;
 
     @Column(name = "candidate_label", nullable = false)

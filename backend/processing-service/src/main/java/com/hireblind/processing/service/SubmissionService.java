@@ -103,6 +103,12 @@ public class SubmissionService {
         return stats;
     }
 
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getUnassignedSubmissions() {
+        return submissionRepository.findByCampaignIdIsNull().stream()
+                .map(this::toResponse).toList();
+    }
+
     // ── Helpers ──
 
     private Submission findOrThrow(UUID id) {

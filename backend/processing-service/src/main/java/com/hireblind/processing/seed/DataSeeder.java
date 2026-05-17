@@ -18,7 +18,7 @@ import java.util.*;
  * Seeds realistic fake candidate data for Phase 1 demo.
  * Uses hardcoded campaign UUIDs that match the Campaign Service migration.
  */
-@Component
+// @Component  // Disabled: IMAP connected to real inbox. Fake seed data no longer needed.
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);

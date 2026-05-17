@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -81,5 +82,13 @@ public class CampaignController {
     public ResponseEntity<Map<String, Long>> stats() {
         log.info("GET /campaigns/stats");
         return ResponseEntity.ok(campaignService.getStats());
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteCampaign(@PathVariable UUID id) {
+        log.info("DELETE /campaigns/{} by ADMIN", id);
+        campaignService.deleteCampaign(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -113,6 +113,15 @@ public class CampaignService {
         return stats;
     }
 
+    public void deleteCampaign(UUID id) {
+        Campaign campaign = campaignRepository.findById(id)
+            .orElseThrow(() -> new NoSuchElementException("Campaign not found: " + id));
+        if (campaign.getStatus() != CampaignStatus.ARCHIVED) {
+            throw new IllegalStateException("Campaign must be Archived before it can be permanently deleted.");
+        }
+        campaignRepository.deleteById(id);
+    }
+
     // ── Helpers ──
 
     private Campaign findOrThrow(UUID id) {

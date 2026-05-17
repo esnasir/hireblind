@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -58,6 +59,13 @@ public class SubmissionController {
         String token = request.getHeader("Authorization").substring(7);
         log.info("POST /submissions/{}/reveal by user: {}", id, userId);
         return ResponseEntity.ok(submissionService.reveal(id, userId, token));
+    }
+
+    @GetMapping("/unassigned")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<SubmissionResponse>> getUnassigned() {
+        log.info("GET /submissions/unassigned by ADMIN");
+        return ResponseEntity.ok(submissionService.getUnassignedSubmissions());
     }
 
     @GetMapping("/stats")

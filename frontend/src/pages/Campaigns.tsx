@@ -15,7 +15,9 @@ export default function Campaigns() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newCampaign, setNewCampaign] = useState({ title: '', description: '', requiredSkills: '' });
+  const [newCampaign, setNewCampaign] = useState({ title: '', description: '' });
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState('');
 
   const { data: campaigns, isLoading, error } = useQuery({
     queryKey: ['campaigns'],
@@ -27,7 +29,9 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       setIsDialogOpen(false);
-      setNewCampaign({ title: '', description: '', requiredSkills: '' });
+      setNewCampaign({ title: '', description: '' });
+      setSkills([]);
+      setSkillInput('');
     },
   });
 
@@ -36,9 +40,52 @@ export default function Campaigns() {
     createMutation.mutate({
       title: newCampaign.title,
       description: newCampaign.description,
-      requiredSkills: newCampaign.requiredSkills.split(',').map(s => s.trim()).filter(Boolean),
+      requiredSkills: skills,
       screeningRules: {}, // default
     });
+  };
+
+  const handleSkillKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSkill();
+    } else if (e.key === 'Backspace' && !skillInput && skills.length > 0) {
+      setSkills(skills.slice(0, -1));
+    }
+  };
+
+  const handleSkillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.includes(',')) {
+      const parts = val.split(',');
+      const newSkillsToAdd = parts
+        .map(p => p.trim())
+        .filter(Boolean)
+        .filter(p => !skills.includes(p));
+      
+      let updatedSkills = [...skills];
+      for (const s of newSkillsToAdd) {
+        if (updatedSkills.length < 20) {
+          updatedSkills.push(s);
+        }
+      }
+      setSkills(updatedSkills);
+      setSkillInput('');
+    } else {
+      setSkillInput(val);
+    }
+  };
+
+  const addSkill = () => {
+    const trimmed = skillInput.trim();
+    if (trimmed && !skills.includes(trimmed) && skills.length < 20) {
+      setSkills([...skills, trimmed]);
+      setSkillInput('');
+    }
+  };
+
+  const removeSkill = (indexToRemove: number) => {
+    setSkills(skills.filter((_, idx) => idx !== indexToRemove));
   };
 
   return (
@@ -56,7 +103,7 @@ export default function Campaigns() {
                 <Plus className="mr-2 h-4 w-4" /> New Campaign
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-2xl w-full">
               <form onSubmit={handleCreate}>
                 <DialogHeader>
                   <DialogTitle>Create Campaign</DialogTitle>
@@ -76,19 +123,45 @@ export default function Campaigns() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Description</label>
-                    <Input 
+                    <textarea
+                      rows={6}
                       value={newCampaign.description}
                       onChange={(e) => setNewCampaign({...newCampaign, description: e.target.value})}
-                      placeholder="Brief role description" 
+                      placeholder="Enter a comprehensive description of the job, requirements, and responsibilities..."
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px] resize-y leading-relaxed"
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Required Skills (comma separated)</label>
-                    <Input 
-                      value={newCampaign.requiredSkills}
-                      onChange={(e) => setNewCampaign({...newCampaign, requiredSkills: e.target.value})}
-                      placeholder="React, TypeScript, CSS" 
-                    />
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-medium">Required Skills</label>
+                      <span className="text-xs text-slate-400 font-mono">{skills.length}/20</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 p-2 border border-slate-200 rounded-lg bg-white min-h-[42px] focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                      {skills.map((skill, idx) => (
+                        <span key={skill + idx} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-xs">
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => removeSkill(idx)}
+                            className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+                          >
+                            <span className="text-[10px] font-bold">×</span>
+                          </button>
+                        </span>
+                      ))}
+                      {skills.length < 20 && (
+                        <input
+                          type="text"
+                          value={skillInput}
+                          onChange={handleSkillChange}
+                          onKeyDown={handleSkillKeyDown}
+                          onBlur={addSkill}
+                          placeholder={skills.length === 0 ? "e.g. React, TypeScript, CSS" : "Add skill..."}
+                          className="flex-1 min-w-[120px] bg-transparent border-0 p-0 text-sm outline-none placeholder:text-slate-400 focus:ring-0"
+                        />
+                      )}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>

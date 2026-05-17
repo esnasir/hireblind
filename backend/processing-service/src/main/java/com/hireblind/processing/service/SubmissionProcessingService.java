@@ -18,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,6 +26,8 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 public class SubmissionProcessingService {
+
+    public record SubmissionAndAttempt(Submission submission, ProcessingAttempt attempt) {}
 
     private final IncomingMessageRepository incomingMessageRepository;
     private final ProcessingAttemptRepository processingAttemptRepository;
@@ -59,20 +62,76 @@ public class SubmissionProcessingService {
         }
     }
 
-    @Transactional
     public void processSingleMessage(IncomingMessage message) {
         log.info("Starting processing for message: {}", message.getId());
 
+        // 1. Fetch Active Campaigns and Perform Matching
+        UUID matchedCampaignId = null;
+        try {
+            List<CampaignResponse> activeCampaigns = fetchActiveCampaigns();
+            if (activeCampaigns != null && !activeCampaigns.isEmpty()) {
+                String matchResponse = llmClientService.matchCampaign(message.getExtractedText(), activeCampaigns);
+                LlmClientService.CampaignMatchResult matchResult = llmClientService.parseCampaignMatchResponse(matchResponse);
+                if (matchResult.matched_campaign_id() != null && 
+                    ("HIGH".equals(matchResult.confidence()) || "MEDIUM".equals(matchResult.confidence()))) {
+                    matchedCampaignId = UUID.fromString(matchResult.matched_campaign_id());
+                    log.info("Message {} matched with campaign {} (confidence: {})", 
+                            message.getId(), matchedCampaignId, matchResult.confidence());
+                } else {
+                    log.warn("No confident campaign match for message {} — saved as unassigned", message.getSourceMessageId());
+                }
+            } else {
+                log.warn("No active campaigns found in campaign-service — message {} saved as unassigned", message.getSourceMessageId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to perform campaign matching for message: {}, defaulting to unassigned: {}", message.getId(), e.getMessage());
+        }
+
+        // 2. Initialize Submission and Attempt in their own transaction
+        SubmissionAndAttempt init = initiateSubmission(message, matchedCampaignId);
+        Submission submission = init.submission();
+        ProcessingAttempt attempt = init.attempt();
+
+        try {
+            if (matchedCampaignId != null) {
+                // 3. Fetch Campaign Details (Outside DB transaction)
+                CampaignResponse campaign = fetchCampaignDetails(matchedCampaignId);
+
+                // 4. Call LLM (Outside DB transaction)
+                LlmResponse llmResult = llmClientService.processCandidate(
+                        message.getRawBody(),
+                        message.getExtractedText(),
+                        campaign.getDescription(),
+                        String.join(", ", campaign.getRequiredSkills()),
+                        toJson(campaign.getScreeningRules())
+                );
+
+                // 5. Persist Successful Result in its own transaction
+                persistSuccessfulResult(message, submission, attempt, llmResult);
+            } else {
+                // 3. Save as unassigned, mark processing completed with no profile/score (since there's no campaign to score against)
+                persistUnassignedResult(message, submission, attempt);
+            }
+
+        } catch (Exception e) {
+            log.error("Error during processing for message: {}, submission {}: {}", 
+                    message.getId(), submission.getId(), e.getMessage(), e);
+            // 5. Persist Failed Result in its own transaction
+            persistFailedResult(message, submission, attempt, e);
+        }
+    }
+
+    @Transactional
+    public SubmissionAndAttempt initiateSubmission(IncomingMessage message, UUID campaignId) {
         // 1. Create Submission
         Submission submission = new Submission();
-        submission.setCampaignId(DEFAULT_CAMPAIGN_ID); // Defaulting for Phase 2
+        submission.setCampaignId(campaignId);
         submission.setCandidateLabel("Candidate-" + message.getId().toString().substring(0, 8));
         submission.setSourceMessageId(message.getSourceMessageId());
         submission.setReceivedAt(message.getReceivedAt().toInstant());
         submission.setProcessingStatus(ProcessingStatus.PROCESSING);
         submission.setRawCandidateEmail(message.getSenderEmail());
-        submission.setRawCandidateName("Unknown Candidate"); // Name extraction could be an LLM task too
-        
+        submission.setRawCandidateName("Unknown Candidate");
         submission = submissionRepository.save(submission);
 
         // 2. Manage Attempt
@@ -83,79 +142,74 @@ public class SubmissionProcessingService {
                 .status("RUNNING")
                 .createdAt(OffsetDateTime.now())
                 .build();
+        attempt = processingAttemptRepository.save(attempt);
+
+        return new SubmissionAndAttempt(submission, attempt);
+    }
+
+    @Transactional
+    public void persistSuccessfulResult(IncomingMessage message, Submission submission, ProcessingAttempt attempt, LlmResponse llmResult) {
+        // 1. Create Anonymized Profile
+        AnonymizedProfile profile = new AnonymizedProfile();
+        profile.setSubmissionId(submission.getId());
+        profile.setNormalizedResumeText(llmResult.getExperienceSummary());
+        profile.setExtractedSkillsJson(toJson(llmResult.getExtractedSkills()));
+        profile.setExperienceSummary(llmResult.getExperienceSummary());
+        profile.setEducationSummaryRedacted(llmResult.getEducationSummary());
+        
+        // Wrap the raw string redact summary inside a structured JSON Object!
+        profile.setPiiRedactionSummaryJson(toJson(Map.of("summary", llmResult.getPiiRedactionSummary())));
+        
+        profile.setConfidenceScore(java.math.BigDecimal.valueOf(llmResult.getConfidenceScore()));
+        profile = profileRepository.save(profile);
+
+        // 2. Create Scoring Result
+        ScoringResult score = new ScoringResult();
+        score.setSubmissionId(submission.getId());
+        score.setCampaignId(submission.getCampaignId());
+        score.setScoreValue(java.math.BigDecimal.valueOf(llmResult.getScoreValue()));
+        score.setExplainabilityTagsJson(toJson(llmResult.getExplainabilityTags()));
+        score.setMatchedSkillsJson(toJson(llmResult.getMatchedSkills()));
+        score.setMissingSkillsJson(toJson(llmResult.getMissingSkills()));
+        score.setSummaryReason(llmResult.getSummaryReason());
+        score.setConfidenceScore(java.math.BigDecimal.valueOf(llmResult.getConfidenceScore()));
+        score.setLlmModelName(llmClientService.getModelName());
+        score.setLlmResponseVersion("v1");
+        score = scoringRepository.save(score);
+
+        // 3. Update Submission
+        submission.setCurrentProfileId(profile.getId());
+        submission.setCurrentScoreId(score.getId());
+        submission.setProcessingStatus(ProcessingStatus.COMPLETED);
+        submissionRepository.save(submission);
+
+        // 4. Update Attempt
+        attempt.setStatus("SUCCESS");
         processingAttemptRepository.save(attempt);
 
-        try {
-            // 3. Fetch Campaign Details
-            CampaignResponse campaign = fetchCampaignDetails(DEFAULT_CAMPAIGN_ID);
+        // 5. Scrub PII from IncomingMessage
+        message.setSenderEmail("[SCRUBBED]");
+        message.setRawBody("[SCRUBBED]");
+        message.setExtractedText("[SCRUBBED]");
+        message.setStatus("PROCESSED");
+        incomingMessageRepository.save(message);
 
-            // 4. Call LLM
-            LlmResponse llmResult = llmClientService.processCandidate(
-                    message.getRawBody(),
-                    message.getExtractedText(),
-                    campaign.getDescription(),
-                    String.join(", ", campaign.getRequiredSkills()),
-                    toJson(campaign.getScreeningRules())
-            );
+        log.info("Successfully processed and saved submission: {}", submission.getId());
+    }
 
-            // 5. Create Anonymized Profile
-            AnonymizedProfile profile = new AnonymizedProfile();
-            profile.setSubmissionId(submission.getId());
-            profile.setNormalizedResumeText(llmResult.getExperienceSummary()); // Using summary as normalized text for now
-            profile.setExtractedSkillsJson(toJson(llmResult.getExtractedSkills()));
-            profile.setExperienceSummary(llmResult.getExperienceSummary());
-            profile.setEducationSummaryRedacted(llmResult.getEducationSummary());
-            profile.setPiiRedactionSummaryJson(llmResult.getPiiRedactionSummary());
-            profile.setConfidenceScore(java.math.BigDecimal.valueOf(llmResult.getConfidenceScore()));
-            profile = profileRepository.save(profile);
+    @Transactional
+    public void persistFailedResult(IncomingMessage message, Submission submission, ProcessingAttempt attempt, Exception exception) {
+        attempt.setStatus("FAILED");
+        attempt.setErrorMessage(exception.getMessage());
+        processingAttemptRepository.save(attempt);
 
-            // 6. Create Scoring Result
-            ScoringResult score = new ScoringResult();
-            score.setSubmissionId(submission.getId());
-            score.setCampaignId(submission.getCampaignId());
-            score.setScoreValue(java.math.BigDecimal.valueOf(llmResult.getScoreValue()));
-            score.setExplainabilityTagsJson(toJson(llmResult.getExplainabilityTags()));
-            score.setMatchedSkillsJson(toJson(llmResult.getMatchedSkills()));
-            score.setMissingSkillsJson(toJson(llmResult.getMissingSkills()));
-            score.setSummaryReason(llmResult.getSummaryReason());
-            score.setConfidenceScore(java.math.BigDecimal.valueOf(llmResult.getConfidenceScore()));
-            score.setLlmModelName(llmClientService.getModelName());
-            score.setLlmResponseVersion("v1");
-            score = scoringRepository.save(score);
+        submission.setProcessingStatus(ProcessingStatus.FAILED);
+        submissionRepository.save(submission);
 
-            // 7. Update Submission
-            submission.setCurrentProfileId(profile.getId());
-            submission.setCurrentScoreId(score.getId());
-            submission.setProcessingStatus(ProcessingStatus.COMPLETED);
-            submissionRepository.save(submission);
+        message.setStatus("FAILED");
+        incomingMessageRepository.save(message);
 
-            // 8. Update Attempt
-            attempt.setStatus("SUCCESS");
-            processingAttemptRepository.save(attempt);
-
-            // 9. Scrub PII from IncomingMessage
-            message.setSenderEmail("[SCRUBBED]");
-            message.setRawBody("[SCRUBBED]");
-            message.setExtractedText("[SCRUBBED]");
-            message.setStatus("PROCESSED");
-            incomingMessageRepository.save(message);
-
-            log.info("Successfully processed submission: {}", submission.getId());
-
-        } catch (Exception e) {
-            log.error("Error during LLM processing for submission {}: {}", submission.getId(), e.getMessage());
-            attempt.setStatus("FAILED");
-            attempt.setErrorMessage(e.getMessage());
-            processingAttemptRepository.save(attempt);
-            
-            submission.setProcessingStatus(ProcessingStatus.FAILED);
-            submissionRepository.save(submission);
-            
-            message.setStatus("FAILED");
-            incomingMessageRepository.save(message);
-            
-            throw e;
-        }
+        log.info("Recorded processing failure in database for submission: {}", submission.getId());
     }
 
     private CampaignResponse fetchCampaignDetails(UUID campaignId) {
@@ -168,6 +222,42 @@ public class SubmissionProcessingService {
                 .retrieve()
                 .bodyToMono(CampaignResponse.class)
                 .block();
+    }
+
+    private List<CampaignResponse> fetchActiveCampaigns() {
+        String token = jwtUtil.generateToken("processing-service", "ADMIN");
+        WebClient client = WebClient.builder().baseUrl(campaignServiceUrl).build();
+
+        return client.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/campaigns")
+                        .queryParam("status", "ACTIVE")
+                        .build())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .retrieve()
+                .bodyToFlux(CampaignResponse.class)
+                .collectList()
+                .block();
+    }
+
+    @Transactional
+    public void persistUnassignedResult(IncomingMessage message, Submission submission, ProcessingAttempt attempt) {
+        // Update Submission
+        submission.setProcessingStatus(ProcessingStatus.COMPLETED);
+        submissionRepository.save(submission);
+
+        // Update Attempt
+        attempt.setStatus("SUCCESS");
+        processingAttemptRepository.save(attempt);
+
+        // Scrub PII from IncomingMessage
+        message.setSenderEmail("[SCRUBBED]");
+        message.setRawBody("[SCRUBBED]");
+        message.setExtractedText("[SCRUBBED]");
+        message.setStatus("PROCESSED");
+        incomingMessageRepository.save(message);
+
+        log.info("Successfully saved unassigned submission: {}", submission.getId());
     }
 
     private String toJson(Object obj) {
