@@ -7,7 +7,7 @@ services:
     container_name: hireblind-postgres
     environment:
       POSTGRES_USER: hireblind
-      POSTGRES_PASSWORD: hireblind_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -28,7 +28,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_iam
       SPRING_DATASOURCE_USERNAME: hireblind
-      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8081
     depends_on:
@@ -44,7 +44,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_campaign
       SPRING_DATASOURCE_USERNAME: hireblind
-      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8082
     depends_on:
@@ -60,7 +60,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_processing
       SPRING_DATASOURCE_USERNAME: hireblind
-      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       AUDIT_SERVICE_URL: http://audit-service:8084
       CAMPAIGN_SERVICE_URL: http://campaign-service:8082
@@ -70,6 +70,7 @@ services:
       IMAP_HOST: ${IMAP_HOST}
       IMAP_PORT: ${IMAP_PORT}
       IMAP_USERNAME: ${IMAP_USERNAME}
+      SPRING_TASK_SCHEDULING_POOL_SIZE: 5
       IMAP_PASSWORD: ${IMAP_PASSWORD}
     depends_on:
       postgres:
@@ -84,7 +85,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_audit
       SPRING_DATASOURCE_USERNAME: hireblind
-      SPRING_DATASOURCE_PASSWORD: hireblind_dev
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8084
     depends_on:

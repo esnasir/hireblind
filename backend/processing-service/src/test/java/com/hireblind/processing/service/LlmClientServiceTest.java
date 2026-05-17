@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -17,16 +19,18 @@ class LlmClientServiceTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         objectMapper = new ObjectMapper();
         
         // Mock WebClient Builder
         WebClient.Builder builderMock = mock(WebClient.Builder.class);
-        when(builderMock.baseUrl("https://api.openai.com/v1")).thenReturn(builderMock);
-        when(builderMock.defaultHeader(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString())).thenReturn(builderMock);
+        when(builderMock.clientConnector(any())).thenReturn(builderMock);
+        when(builderMock.baseUrl(anyString())).thenReturn(builderMock);
+        when(builderMock.defaultHeader(anyString(), anyString())).thenReturn(builderMock);
         when(builderMock.build()).thenReturn(mock(WebClient.class));
 
-        llmClientService = new LlmClientService(builderMock, objectMapper, "dummy-key", "gpt-4o-mini");
+        llmClientService = new LlmClientService(builderMock, objectMapper, "dummy-key", "gemini-2.0-flash");
     }
 
     @Test
@@ -39,15 +43,18 @@ class LlmClientServiceTest {
 
     @Test
     void testParseAndValidateResponse_Success() {
-        String mockOpenAiResponse = "{" +
-                "\"choices\": [{" +
-                "  \"message\": {" +
-                "    \"content\": \"{\\\"scoreValue\\\":85, \\\"confidenceScore\\\":90, \\\"experienceSummary\\\":\\\"Great\\\"}\"" +
-                "  }" +
+        String mockGeminiResponse = "{" +
+                "\"candidates\": [{" +
+                "  \"content\": {" +
+                "    \"parts\": [" +
+                "      { \"text\": \"{\\\"scoreValue\\\":85, \\\"confidenceScore\\\":90, \\\"experienceSummary\\\":\\\"Great\\\"}\" }" +
+                "    ]" +
+                "  }," +
+                "  \"finishReason\": \"STOP\"" +
                 "}]" +
                 "}";
 
-        LlmResponse response = llmClientService.parseAndValidateResponse(mockOpenAiResponse);
+        LlmResponse response = llmClientService.parseAndValidateResponse(mockGeminiResponse);
         assertNotNull(response);
         assertEquals(85, response.getScoreValue());
         assertEquals(90, response.getConfidenceScore());
@@ -55,47 +62,51 @@ class LlmClientServiceTest {
     }
 
     @Test
-    void testParseAndValidateResponse_StripsMarkdown() {
-        String mockOpenAiResponse = "{" +
-                "\"choices\": [{" +
-                "  \"message\": {" +
-                "    \"content\": \"```json\\n{\\\"scoreValue\\\":85, \\\"confidenceScore\\\":90}\\n```\"" +
-                "  }" +
-                "}]" +
-                "}";
-
-        LlmResponse response = llmClientService.parseAndValidateResponse(mockOpenAiResponse);
-        assertNotNull(response);
-        assertEquals(85, response.getScoreValue());
-    }
-
-    @Test
-    void testParseAndValidateResponse_MissingScore() {
-        String mockOpenAiResponse = "{" +
-                "\"choices\": [{" +
-                "  \"message\": {" +
-                "    \"content\": \"{\\\"experienceSummary\\\":\\\"Great\\\"}\"" +
-                "  }" +
+    void testParseAndValidateResponse_SafetyBlock() {
+        String mockGeminiResponse = "{" +
+                "\"candidates\": [{" +
+                "  \"finishReason\": \"SAFETY\"" +
                 "}]" +
                 "}";
 
         assertThrows(MalformedLlmResponseException.class, () -> {
-            llmClientService.parseAndValidateResponse(mockOpenAiResponse);
+            llmClientService.parseAndValidateResponse(mockGeminiResponse);
+        });
+    }
+
+    @Test
+    void testParseAndValidateResponse_MissingScore() {
+        String mockGeminiResponse = "{" +
+                "\"candidates\": [{" +
+                "  \"content\": {" +
+                "    \"parts\": [" +
+                "      { \"text\": \"{\\\"experienceSummary\\\":\\\"Great\\\"}\" }" +
+                "    ]" +
+                "  }," +
+                "  \"finishReason\": \"STOP\"" +
+                "}]" +
+                "}";
+
+        assertThrows(MalformedLlmResponseException.class, () -> {
+            llmClientService.parseAndValidateResponse(mockGeminiResponse);
         });
     }
 
     @Test
     void testParseAndValidateResponse_InvalidJson() {
-        String mockOpenAiResponse = "{" +
-                "\"choices\": [{" +
-                "  \"message\": {" +
-                "    \"content\": \"Not JSON at all\"" +
-                "  }" +
+        String mockGeminiResponse = "{" +
+                "\"candidates\": [{" +
+                "  \"content\": {" +
+                "    \"parts\": [" +
+                "      { \"text\": \"Not JSON at all\" }" +
+                "    ]" +
+                "  }," +
+                "  \"finishReason\": \"STOP\"" +
                 "}]" +
                 "}";
 
         assertThrows(MalformedLlmResponseException.class, () -> {
-            llmClientService.parseAndValidateResponse(mockOpenAiResponse);
+            llmClientService.parseAndValidateResponse(mockGeminiResponse);
         });
     }
 }

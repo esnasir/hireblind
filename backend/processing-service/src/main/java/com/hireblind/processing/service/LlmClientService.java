@@ -4,15 +4,23 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hireblind.processing.dto.LlmResponse;
 import com.hireblind.processing.exception.MalformedLlmResponseException;
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -21,8 +29,8 @@ public class LlmClientService {
     private static final String SYSTEM_PROMPT = 
         "You are an expert HR screening assistant. Your job is to analyze a candidate's email and resume " +
         "against a specific job description and rubric. " +
-        "You MUST return the result EXACTLY as a raw JSON object with NO markdown formatting, NO backticks, " +
-        "and NO conversational text. The JSON must exactly match this schema: \n" +
+        "You MUST return the result EXACTLY as a raw JSON object. " +
+        "The JSON must exactly match this schema: \n" +
         "{ \"extractedSkills\": [\"string\"], \"experienceSummary\": \"string\", \"educationSummary\": \"string\", " +
         "\"piiRedactionSummary\": \"string\", \"scoreValue\": integer (0-100), \"explainabilityTags\": [\"string\"], " +
         "\"matchedSkills\": [\"string\"], \"missingSkills\": [\"string\"], \"summaryReason\": \"string\", " +
@@ -31,18 +39,28 @@ public class LlmClientService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final String modelName;
+    private final String apiKey;
 
     public LlmClientService(
             WebClient.Builder webClientBuilder,
             ObjectMapper objectMapper,
             @Value("${llm.api.key:}") String apiKey,
-            @Value("${llm.model.name:gpt-4o-mini}") String modelName) {
+            @Value("${llm.model.name:gemini-2.0-flash}") String modelName) {
         this.objectMapper = objectMapper;
         this.modelName = modelName;
+        this.apiKey = apiKey;
+
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                .responseTimeout(Duration.ofSeconds(30))
+                .doOnConnected(conn -> conn
+                        .addHandlerLast(new ReadTimeoutHandler(30, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(30, TimeUnit.SECONDS)));
+
         this.webClient = webClientBuilder
-                .baseUrl("https://api.openai.com/v1")
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .baseUrl("https://generativelanguage.googleapis.com/v1beta")
+                .defaultHeader(org.springframework.http.HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
@@ -51,22 +69,43 @@ public class LlmClientService {
     }
 
     public LlmResponse processCandidate(String emailBody, String resumeText, String jobDescription, String requiredSkills, String scoringRubric) {
-        String prompt = buildPrompt(emailBody, resumeText, jobDescription, requiredSkills, scoringRubric);
+        String fullPrompt = SYSTEM_PROMPT + "\n\n" + buildPrompt(emailBody, resumeText, jobDescription, requiredSkills, scoringRubric);
         
         Map<String, Object> requestBody = Map.of(
-                "model", this.modelName,
-                "messages", List.of(
-                        Map.of("role", "system", "content", SYSTEM_PROMPT),
-                        Map.of("role", "user", "content", prompt)
+                "contents", List.of(
+                        Map.of("parts", List.of(
+                                Map.of("text", fullPrompt)
+                        ))
                 ),
-                "temperature", 0.1 // Low temperature for consistent JSON output
+                "generationConfig", Map.of(
+                        "responseMimeType", "application/json"
+                )
         );
 
         String responseBody = webClient.post()
-                .uri("/chat/completions")
+                .uri(uriBuilder -> uriBuilder
+                        .path("/models/{model}:generateContent")
+                        .queryParam("key", apiKey)
+                        .build(modelName))
                 .bodyValue(requestBody)
                 .retrieve()
+                .onStatus(HttpStatus.BAD_REQUEST::equals, response -> 
+                        response.bodyToMono(String.class).flatMap(body -> {
+                            log.error("Gemini 400 Bad Request: {}", body);
+                            return Mono.error(new MalformedLlmResponseException("Invalid request or prompt blocked by Gemini: " + body));
+                        }))
+                .onStatus(HttpStatus.TOO_MANY_REQUESTS::equals, response -> 
+                        response.bodyToMono(String.class).flatMap(body -> {
+                            log.error("Gemini 429 Quota Exceeded: {}", body);
+                            return Mono.error(new RuntimeException("Gemini quota exceeded: " + body));
+                        }))
+                .onStatus(HttpStatus.SERVICE_UNAVAILABLE::equals, response -> 
+                        response.bodyToMono(String.class).flatMap(body -> {
+                            log.error("Gemini 503 Model Overloaded: {}", body);
+                            return Mono.error(new RuntimeException("Gemini model overloaded: " + body));
+                        }))
                 .bodyToMono(String.class)
+                .doOnError(e -> log.error("Error calling Gemini API: {}", e.getMessage()))
                 .block();
 
         return parseAndValidateResponse(responseBody);
@@ -83,42 +122,41 @@ public class LlmClientService {
                "Resume Text:\n" + (resumeText != null ? resumeText : "N/A");
     }
 
-    public LlmResponse parseAndValidateResponse(String openaiResponse) {
+    public LlmResponse parseAndValidateResponse(String geminiResponse) {
         try {
-            // OpenAI response format: { "choices": [ { "message": { "content": "{...}" } } ] }
-            var rootNode = objectMapper.readTree(openaiResponse);
-            var choices = rootNode.path("choices");
-            if (choices.isEmpty()) {
-                throw new MalformedLlmResponseException("LLM response contains no choices.");
+            // Gemini response format: { "candidates": [ { "content": { "parts": [ { "text": "{...}" } ] }, "finishReason": "..." } ] }
+            var rootNode = objectMapper.readTree(geminiResponse);
+            var candidates = rootNode.path("candidates");
+            if (candidates.isEmpty()) {
+                throw new MalformedLlmResponseException("Gemini response contains no candidates.");
             }
             
-            String content = choices.get(0).path("message").path("content").asText();
-            if (content == null || content.isBlank()) {
-                throw new MalformedLlmResponseException("LLM response content is empty.");
-            }
-            
-            // Clean markdown blocks if the LLM ignored instructions
-            content = content.trim();
-            if (content.startsWith("```json")) {
-                content = content.substring(7);
-            } else if (content.startsWith("```")) {
-                content = content.substring(3);
-            }
-            if (content.endsWith("```")) {
-                content = content.substring(0, content.length() - 3);
+            var firstCandidate = candidates.get(0);
+            String finishReason = firstCandidate.path("finishReason").asText();
+            if ("SAFETY".equals(finishReason)) {
+                log.error("Gemini response blocked by safety filter: {}", geminiResponse);
+                throw new MalformedLlmResponseException("Gemini response blocked by safety filter.");
             }
 
+            String content = firstCandidate.path("content").path("parts").get(0).path("text").asText();
+            if (content == null || content.isBlank()) {
+                throw new MalformedLlmResponseException("Gemini response content is empty.");
+            }
+            
             LlmResponse parsed = objectMapper.readValue(content.trim(), LlmResponse.class);
             
             // Basic validation
             if (parsed.getScoreValue() == null || parsed.getConfidenceScore() == null) {
-                throw new MalformedLlmResponseException("LLM response missing required score fields.");
+                throw new MalformedLlmResponseException("Gemini response missing required score fields.");
             }
             
             return parsed;
         } catch (JsonProcessingException e) {
-            log.error("Failed to parse LLM JSON: {}", openaiResponse, e);
-            throw new MalformedLlmResponseException("Failed to parse LLM JSON", e);
+            log.error("Failed to parse Gemini JSON: {}", geminiResponse, e);
+            throw new MalformedLlmResponseException("Failed to parse Gemini JSON", e);
+        } catch (Exception e) {
+            log.error("Unexpected error parsing Gemini response: {}", geminiResponse, e);
+            throw new MalformedLlmResponseException("Unexpected error parsing Gemini response", e);
         }
     }
 }
