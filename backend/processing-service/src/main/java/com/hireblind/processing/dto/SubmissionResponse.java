@@ -25,5 +25,7 @@ public record SubmissionResponse(
         String linkedinUrl,
         Integer yearsOfExperience,
         String currentJobRole,
-        String currentCompany
+        String currentCompany,
+        String state,
+        String extractedUrlsJson
 ) {}

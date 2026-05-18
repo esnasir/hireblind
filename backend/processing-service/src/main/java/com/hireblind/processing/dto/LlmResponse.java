@@ -23,4 +23,21 @@ public class LlmResponse {
     private List<String> missingSkills;
     private String summaryReason;
     private Integer confidenceScore;
+
+    // New profile fields
+    private String phone;
+    private String linkedinUrl;
+    private Integer yearsOfExperience;
+    private String currentJobRole;
+    private String currentCompany;
+    private List<ExtractedUrl> extractedUrls;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExtractedUrl {
+        private String platform;
+        private String url;
+    }
 }

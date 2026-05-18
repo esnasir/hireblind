@@ -121,12 +121,33 @@ public class SubmissionProcessingService {
         }
     }
 
+    private String generatePseudonym(UUID uuid) {
+        String[] adjectives = {
+            "Amber", "Azure", "Bronze", "Cobalt", "Copper", "Crimson", "Emerald", "Golden", 
+            "Indigo", "Jade", "Onyx", "Ruby", "Sapphire", "Silver", "Teal", "Opal", "Coral"
+        };
+        String[] nouns = {
+            "Badger", "Falcon", "Fox", "Gryphon", "Hawk", "Koala", "Lynx", "Otter", "Owl", 
+            "Panther", "Phoenix", "Puma", "Raven", "Sparrow", "Swift", "Tiger", "Stag"
+        };
+        long mostSig = (uuid != null) ? uuid.getMostSignificantBits() : UUID.randomUUID().getMostSignificantBits();
+        int adjIndex = Math.abs((int) (mostSig % adjectives.length));
+        int nounIndex = Math.abs((int) ((mostSig >> 16) % nouns.length));
+        return "Candidate " + adjectives[adjIndex] + " " + nouns[nounIndex];
+    }
+
     @Transactional
     public SubmissionAndAttempt initiateSubmission(IncomingMessage message, UUID campaignId) {
         // 1. Create Submission
         Submission submission = new Submission();
         submission.setCampaignId(campaignId);
-        submission.setCandidateLabel("Candidate-" + message.getId().toString().substring(0, 8));
+        submission.setCandidateLabel(generatePseudonym(message.getId()));
+        
+        String[] statesList = {"Karnataka", "Maharashtra", "Telangana", "Delhi", "Tamil Nadu", "Haryana", "Uttar Pradesh", "West Bengal", "Gujarat"};
+        long mostSig = message.getId().getMostSignificantBits();
+        int stateIndex = Math.abs((int) (mostSig % statesList.length));
+        submission.setState(statesList[stateIndex]);
+
         submission.setSourceMessageId(message.getSourceMessageId());
         submission.setReceivedAt(message.getReceivedAt().toInstant());
         submission.setProcessingStatus(ProcessingStatus.PROCESSING);
@@ -187,6 +208,24 @@ public class SubmissionProcessingService {
         // 3. Update Submission
         if (llmResult.getCandidateName() != null && !llmResult.getCandidateName().isBlank()) {
             submission.setRawCandidateName(llmResult.getCandidateName());
+        }
+        if (llmResult.getPhone() != null && !llmResult.getPhone().isBlank()) {
+            submission.setPhone(llmResult.getPhone());
+        }
+        if (llmResult.getLinkedinUrl() != null && !llmResult.getLinkedinUrl().isBlank()) {
+            submission.setLinkedinUrl(llmResult.getLinkedinUrl());
+        }
+        if (llmResult.getYearsOfExperience() != null) {
+            submission.setYearsOfExperience(llmResult.getYearsOfExperience());
+        }
+        if (llmResult.getCurrentJobRole() != null && !llmResult.getCurrentJobRole().isBlank()) {
+            submission.setCurrentJobRole(llmResult.getCurrentJobRole());
+        }
+        if (llmResult.getCurrentCompany() != null && !llmResult.getCurrentCompany().isBlank()) {
+            submission.setCurrentCompany(llmResult.getCurrentCompany());
+        }
+        if (llmResult.getExtractedUrls() != null && !llmResult.getExtractedUrls().isEmpty()) {
+            submission.setExtractedUrlsJson(toJson(llmResult.getExtractedUrls()));
         }
         submission.setCurrentProfileId(profile.getId());
         submission.setCurrentScoreId(score.getId());

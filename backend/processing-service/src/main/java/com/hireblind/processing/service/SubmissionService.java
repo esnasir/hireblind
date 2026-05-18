@@ -103,12 +103,54 @@ public class SubmissionService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Long> getStats() {
-        Map<String, Long> stats = new LinkedHashMap<>();
+    public Map<String, Object> getStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("TOTAL", submissionRepository.count());
         for (ProcessingStatus status : ProcessingStatus.values()) {
             stats.put(status.name(), submissionRepository.countByProcessingStatus(status));
         }
+
+        java.time.Instant now = java.time.Instant.now();
+        stats.put("applicationsToday", submissionRepository.countByReceivedAtAfter(now.minus(24, java.time.temporal.ChronoUnit.HOURS)));
+        stats.put("applicationsWeekly", submissionRepository.countByReceivedAtAfter(now.minus(7, java.time.temporal.ChronoUnit.DAYS)));
+        stats.put("applicationsMonthly", submissionRepository.countByReceivedAtAfter(now.minus(30, java.time.temporal.ChronoUnit.DAYS)));
+        stats.put("applicationsYearly", submissionRepository.countByReceivedAtAfter(now.minus(365, java.time.temporal.ChronoUnit.DAYS)));
+
+        List<Object[]> stateCounts = submissionRepository.countByState();
+        Map<String, Long> stateMap = new LinkedHashMap<>();
+        for (Object[] row : stateCounts) {
+            String state = (String) row[0];
+            Long count = (Long) row[1];
+            stateMap.put(state, count);
+        }
+        stats.put("stateStats", stateMap);
+
+        List<Object[]> campaignCounts = submissionRepository.countByCampaign();
+        Map<String, Long> campaignMap = new LinkedHashMap<>();
+        for (Object[] row : campaignCounts) {
+            if (row[0] != null) {
+                campaignMap.put(row[0].toString(), (Long) row[1]);
+            }
+        }
+        stats.put("campaignStats", campaignMap);
+
+        return stats;
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getCampaignStats(UUID campaignId) {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        java.time.Instant now = java.time.Instant.now();
+        java.time.Instant todayStart = now.minus(24, java.time.temporal.ChronoUnit.HOURS);
+        java.time.Instant weekStart = now.minus(7, java.time.temporal.ChronoUnit.DAYS);
+        java.time.Instant monthStart = now.minus(30, java.time.temporal.ChronoUnit.DAYS);
+        java.time.Instant yearStart = now.minus(365, java.time.temporal.ChronoUnit.DAYS);
+
+        stats.put("dailyCount", submissionRepository.countByCampaignIdAndReceivedAtAfter(campaignId, todayStart));
+        stats.put("weeklyCount", submissionRepository.countByCampaignIdAndReceivedAtAfter(campaignId, weekStart));
+        stats.put("monthlyCount", submissionRepository.countByCampaignIdAndReceivedAtAfter(campaignId, monthStart));
+        stats.put("yearlyCount", submissionRepository.countByCampaignIdAndReceivedAtAfter(campaignId, yearStart));
+
         return stats;
     }
 
@@ -149,11 +191,18 @@ public class SubmissionService {
         String email = null;
         String phone = null;
         String linkedinUrl = null;
+        String extractedUrlsJson = null;
         if (s.getProcessingStatus() == com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
             name = s.getRawCandidateName();
             email = s.getRawCandidateEmail();
             phone = s.getPhone();
             linkedinUrl = s.getLinkedinUrl();
+            extractedUrlsJson = s.getExtractedUrlsJson();
+        } else {
+            String rawJson = s.getExtractedUrlsJson();
+            if (rawJson != null && !rawJson.isBlank()) {
+                extractedUrlsJson = rawJson.replaceAll("\"url\"\\s*:\\s*\"[^\"]+\"", "\"url\":\"[REDACTED]\"");
+            }
         }
         java.math.BigDecimal matchScore = null;
         if (s.getCurrentScoreId() != null) {
@@ -169,7 +218,8 @@ public class SubmissionService {
                 name, email,
                 s.getPipelineStage(), s.getShortlistTier(), s.getShortlistPosition(),
                 phone, linkedinUrl, s.getYearsOfExperience(),
-                s.getCurrentJobRole(), s.getCurrentCompany()
+                s.getCurrentJobRole(), s.getCurrentCompany(), s.getState(),
+                extractedUrlsJson
         );
     }
 

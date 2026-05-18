@@ -30,14 +30,37 @@ public class LlmClientService {
 
     private static final String SYSTEM_PROMPT = 
         "You are an expert HR screening assistant. Your job is to analyze a candidate's email and resume " +
-        "against a specific job description and rubric. " +
-        "You MUST extract the candidate's real full name (if present) from their resume or email. " +
-        "You MUST return the result EXACTLY as a raw JSON object. " +
-        "The JSON must exactly match this schema: \n" +
-        "{ \"candidateName\": \"string\", \"extractedSkills\": [\"string\"], \"experienceSummary\": \"string\", \"educationSummary\": \"string\", " +
-        "\"piiRedactionSummary\": \"string\", \"scoreValue\": integer (0-100), \"explainabilityTags\": [\"string\"], " +
-        "\"matchedSkills\": [\"string\"], \"missingSkills\": [\"string\"], \"summaryReason\": \"string\", " +
-        "\"confidenceScore\": integer (0-100) }";
+        "against a specific job description and rubric.\n" +
+        "You MUST return the result EXACTLY as a raw JSON object. The JSON must exactly match this schema:\n" +
+        "{\n" +
+        "  \"candidateName\": \"string (Extract real full name if present)\",\n" +
+        "  \"extractedSkills\": [\"string\"],\n" +
+        "  \"experienceSummary\": \"string\",\n" +
+        "  \"educationSummary\": \"string\",\n" +
+        "  \"piiRedactionSummary\": \"string\",\n" +
+        "  \"scoreValue\": integer (0-100),\n" +
+        "  \"explainabilityTags\": [\"string\"],\n" +
+        "  \"matchedSkills\": [\"string\"],\n" +
+        "  \"missingSkills\": [\"string\"],\n" +
+        "  \"summaryReason\": \"string\",\n" +
+        "  \"confidenceScore\": integer (0-100),\n" +
+        "  \"phone\": \"string (Extract phone number if present, otherwise null)\",\n" +
+        "  \"linkedinUrl\": \"string (Extract LinkedIn profile URL if present, otherwise null)\",\n" +
+        "  \"yearsOfExperience\": integer (Extract years of experience as an integer, default to 0 if not present),\n" +
+        "  \"currentJobRole\": \"string (Extract current job role if present, otherwise null)\",\n" +
+        "  \"currentCompany\": \"string (Extract current company if present, otherwise null)\",\n" +
+        "  \"extractedUrls\": [\n" +
+        "    {\n" +
+        "      \"platform\": \"string (Must categorize platform: e.g., 'GitHub', 'LinkedIn', 'Codolio', 'LeetCode', 'HackerRank', 'Kaggle', 'Behance', 'Dribbble', 'Medium', 'Stack Overflow', 'Portfolio', 'Personal Website', 'Research Profile', 'Blog', etc.)\",\n" +
+        "      \"url\": \"string (Extracted absolute URL)\"\n" +
+        "    }\n" +
+        "  ]\n" +
+        "}\n\n" +
+        "IMPORTANT RULES FOR EXTRACTION & CATEGORIZATION:\n" +
+        "1. Extract ALL links, portfolios, profiles, and personal/professional websites from both the email and the resume.\n" +
+        "2. Categorize every single link strictly. If a link belongs to GitHub, mark platform as 'GitHub'. If it belongs to LinkedIn, mark platform as 'LinkedIn'. If it belongs to Codolio, mark platform as 'Codolio'. LeetCode, HackerRank, Kaggle, Behance, Dribbble, Medium, Stack Overflow, etc., must each get their own dedicated category. If it is a personal blog or website, use 'Blog' or 'Personal Website' or 'Portfolio'.\n" +
+        "3. Ensure LinkedIn and GitHub links are extracted reliably and placed in the 'extractedUrls' list. Also, duplicate the LinkedIn URL in the top-level 'linkedinUrl' property.\n" +
+        "4. Keep identity-sensitive fields separated cleanly in their respective JSON fields so they can be securely anonymized.";
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
@@ -158,6 +181,8 @@ public class LlmClientService {
             if (parsed.getExplainabilityTags() == null) parsed.setExplainabilityTags(List.of());
             if (parsed.getMatchedSkills() == null) parsed.setMatchedSkills(List.of());
             if (parsed.getMissingSkills() == null) parsed.setMissingSkills(List.of());
+            if (parsed.getExtractedUrls() == null) parsed.setExtractedUrls(List.of());
+            if (parsed.getYearsOfExperience() == null) parsed.setYearsOfExperience(0);
             
             if (parsed.getExperienceSummary() == null || parsed.getExperienceSummary().isBlank()) {
                 parsed.setExperienceSummary("N/A");

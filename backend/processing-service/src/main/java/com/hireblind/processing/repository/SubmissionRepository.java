@@ -22,4 +22,14 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
            "WHERE s.campaignId = :campaignId " +
            "ORDER BY COALESCE(sr.scoreValue, 0) DESC, s.receivedAt DESC")
     List<Submission> findByCampaignIdOrderByMatchScoreDesc(@Param("campaignId") UUID campaignId);
+
+    long countByReceivedAtAfter(java.time.Instant start);
+
+    long countByCampaignIdAndReceivedAtAfter(UUID campaignId, java.time.Instant start);
+
+    @Query("SELECT s.state, COUNT(s) FROM Submission s WHERE s.state IS NOT NULL GROUP BY s.state")
+    List<Object[]> countByState();
+
+    @Query("SELECT s.campaignId, COUNT(s) FROM Submission s WHERE s.campaignId IS NOT NULL GROUP BY s.campaignId")
+    List<Object[]> countByCampaign();
 }

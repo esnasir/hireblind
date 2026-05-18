@@ -162,22 +162,53 @@ public class DataSeeder implements CommandLineRunner {
                 "Below minimum qualifications. Limited analytical tool experience.");
     }
 
+    private String generatePseudonymFromName(String name) {
+        String[] adjectives = {
+            "Amber", "Azure", "Bronze", "Cobalt", "Copper", "Crimson", "Emerald", "Golden", 
+            "Indigo", "Jade", "Onyx", "Ruby", "Sapphire", "Silver", "Teal", "Opal", "Coral"
+        };
+        String[] nouns = {
+            "Badger", "Falcon", "Fox", "Gryphon", "Hawk", "Koala", "Lynx", "Otter", "Owl", 
+            "Panther", "Phoenix", "Puma", "Raven", "Sparrow", "Swift", "Tiger", "Stag"
+        };
+        int hash = name.hashCode();
+        int adjIndex = Math.abs(hash % adjectives.length);
+        int nounIndex = Math.abs((hash >> 8) % nouns.length);
+        return "Candidate " + adjectives[adjIndex] + " " + nouns[nounIndex];
+    }
+
     private void seedCandidate(UUID campaignId, String label, String rawName, String rawEmail,
                                List<String> matchedSkills, List<String> missingSkills,
                                String experienceSummary, String educationRedacted,
                                double score, int rank, int yearsExp, String reason) {
         Submission sub = new Submission();
         sub.setCampaignId(campaignId);
-        sub.setCandidateLabel(label);
+        sub.setCandidateLabel(generatePseudonymFromName(rawName));
+        
+        String[] states = {"Karnataka", "Maharashtra", "Telangana", "Delhi", "Tamil Nadu", "Haryana", "Uttar Pradesh", "West Bengal", "Gujarat"};
+        sub.setState(states[Math.abs(rawName.hashCode() % states.length)]);
+
         sub.setSourceEmailHash(UUID.randomUUID().toString());
         sub.setSourceMessageId("msg-" + UUID.randomUUID());
-        sub.setReceivedAt(Instant.now().minus(rank, ChronoUnit.DAYS));
+
+        Instant received;
+        if (rank == 1) {
+            received = Instant.now();
+        } else if (rank == 2) {
+            received = Instant.now().minus(2, ChronoUnit.DAYS);
+        } else if (rank == 3) {
+            received = Instant.now().minus(10, ChronoUnit.DAYS);
+        } else {
+            received = Instant.now().minus(45, ChronoUnit.DAYS);
+        }
+        sub.setReceivedAt(received);
+
         sub.setProcessingStatus(ProcessingStatus.SCORED);
         sub.setAttachmentCount(1);
         sub.setRawCandidateName(rawName);
         sub.setRawCandidateEmail(rawEmail);
         
-        sub.setPhone("+1 (555) 01" + rank + "-9876");
+        sub.setPhone("+91 98765 4321" + rank);
         sub.setLinkedinUrl("linkedin.com/in/" + rawName.toLowerCase().replace(" ", ""));
         sub.setYearsOfExperience(yearsExp);
         if (campaignId.equals(CAMPAIGN_BACKEND)) {
@@ -190,6 +221,18 @@ public class DataSeeder implements CommandLineRunner {
             sub.setCurrentJobRole(rank % 2 == 0 ? "Data Analyst" : "BI Consultant");
             sub.setCurrentCompany(rank % 2 == 0 ? "DataStream Corp" : "Insight Analytics");
         }
+
+        List<Map<String, String>> mockUrls = new ArrayList<>();
+        mockUrls.add(Map.of("platform", "LinkedIn", "url", "https://linkedin.com/in/" + rawName.toLowerCase().replace(" ", "")));
+        mockUrls.add(Map.of("platform", "GitHub", "url", "https://github.com/" + rawName.toLowerCase().replace(" ", "")));
+        if (rank % 2 == 0) {
+            mockUrls.add(Map.of("platform", "LeetCode", "url", "https://leetcode.com/" + rawName.toLowerCase().replace(" ", "")));
+            mockUrls.add(Map.of("platform", "Codolio", "url", "https://codolio.com/p/" + rawName.toLowerCase().replace(" ", "")));
+        } else {
+            mockUrls.add(Map.of("platform", "HackerRank", "url", "https://hackerrank.com/" + rawName.toLowerCase().replace(" ", "")));
+            mockUrls.add(Map.of("platform", "Portfolio", "url", "https://" + rawName.toLowerCase().replace(" ", "") + ".dev"));
+        }
+        sub.setExtractedUrlsJson(toJson(mockUrls));
 
         sub = submissionRepo.save(sub);
 

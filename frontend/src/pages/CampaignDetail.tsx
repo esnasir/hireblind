@@ -48,6 +48,7 @@ export default function CampaignDetail() {
     queryFn: () => api.get(`/submissions?campaignId=${id}`).then(res => res.data),
   });
 
+
   const transitionMutation = useMutation({
     mutationFn: (action: 'activate' | 'close' | 'archive') =>
       api.post(`/campaigns/${id}/${action}`).then(res => res.data),
@@ -113,12 +114,38 @@ export default function CampaignDetail() {
   }
 
   function getInitials(label: string) {
-    if (!label) return 'CB';
-    const parts = label.split('-');
-    if (parts.length >= 2) {
-      return parts[1];
+    if (!label) return 'C';
+    const cleanLabel = label.trim();
+    
+    // E.g., "Candidate Jade Falcon" -> "JF"
+    // E.g., "Alex Johnson" -> "AJ"
+    const parts = cleanLabel.split(/\s+/);
+    if (parts.length >= 3 && parts[0].toLowerCase() === 'candidate') {
+      return (parts[1].charAt(0) + parts[2].charAt(0)).toUpperCase();
     }
-    return label.slice(0, 2).toUpperCase();
+    if (parts.length >= 2) {
+      if (parts[0].toLowerCase() === 'candidate') {
+        const second = parts[1];
+        if (second.includes('-')) {
+          const subparts = second.split('-');
+          return subparts[0].charAt(0).toUpperCase();
+        }
+        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+      }
+      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+    }
+    
+    // E.g., "Candidate-7b985e9d" -> "C7"
+    if (cleanLabel.includes('-')) {
+      const parts = cleanLabel.split('-');
+      const second = parts[1];
+      if (second.length > 3) {
+        return ('C' + second.charAt(0)).toUpperCase();
+      }
+      return second.slice(0, 2).toUpperCase();
+    }
+    
+    return cleanLabel.slice(0, 2).toUpperCase();
   }
 
   if (isLoadingCampaign) return <div className="space-y-4"><Skeleton className="h-8 w-1/3"/><Skeleton className="h-24 w-full"/></div>;
@@ -139,6 +166,10 @@ export default function CampaignDetail() {
               </Badge>
             </div>
             <p className="text-slate-600 mt-2 max-w-3xl">{campaign.description}</p>
+            <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-400 font-semibold bg-slate-50 border border-slate-100 rounded-full px-3 py-1.5 w-fit">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+              Total Candidates Processed: <span className="text-slate-800 font-extrabold">{submissions?.length || 0}</span>
+            </div>
           </div>
 
           {user?.role === 'ADMIN' && (
@@ -176,6 +207,7 @@ export default function CampaignDetail() {
           )}
         </div>
       </div>
+
 
       <div className="flex border-b border-slate-200 mb-6">
         <button 

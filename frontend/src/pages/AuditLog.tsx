@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { ShieldAlert, Activity } from 'lucide-react';
+import { formatActorName } from '../lib/utils';
 
 export default function AuditLog() {
   const { data: events, isLoading } = useQuery({
@@ -68,7 +69,7 @@ export default function AuditLog() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm font-medium text-slate-900">{event.actorId}</div>
+                      <div className="text-sm font-medium text-slate-900">{formatActorName(event.actorId)}</div>
                       <div className="text-xs text-slate-500">{event.actorType}</div>
                     </TableCell>
                     <TableCell>

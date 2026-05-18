@@ -77,9 +77,15 @@ public class SubmissionController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Long>> stats() {
+    public ResponseEntity<Map<String, Object>> stats() {
         log.info("GET /submissions/stats");
         return ResponseEntity.ok(submissionService.getStats());
+    }
+
+    @GetMapping("/campaign/{campaignId}/stats")
+    public ResponseEntity<Map<String, Object>> campaignStats(@PathVariable UUID campaignId) {
+        log.info("GET /submissions/campaign/{}/stats", campaignId);
+        return ResponseEntity.ok(submissionService.getCampaignStats(campaignId));
     }
 
     @GetMapping("/{id}/resume")

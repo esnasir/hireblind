@@ -1,6 +1,8 @@
 package com.hireblind.processing.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -100,6 +102,10 @@ public class Submission {
     @Column(name = "state")
     private String state;
 
+    @Column(name = "extracted_urls_json", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String extractedUrlsJson;
+
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = Instant.now();
@@ -189,4 +195,10 @@ public class Submission {
 
     public String getCurrentCompany() { return currentCompany; }
     public void setCurrentCompany(String currentCompany) { this.currentCompany = currentCompany; }
+
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+
+    public String getExtractedUrlsJson() { return extractedUrlsJson; }
+    public void setExtractedUrlsJson(String extractedUrlsJson) { this.extractedUrlsJson = extractedUrlsJson; }
 }

@@ -8,7 +8,8 @@ import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, User, BrainCircuit, ShieldAlert, Eye, CheckCircle2, XCircle, FileText, Download, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, User, BrainCircuit, ShieldAlert, Eye, CheckCircle2, XCircle, FileText, Download, MessageSquare, Send, Lock, ExternalLink } from 'lucide-react';
+import { formatActorName } from '../lib/utils';
 
 export default function CandidateDetail() {
   const { id } = useParams();
@@ -275,6 +276,70 @@ export default function CandidateDetail() {
             </CardContent>
           </Card>
 
+          {/* Dynamic Extracted Digital Insights & Technical Footprint Section */}
+          {(() => {
+            let extractedUrls: Array<{ platform: string; url: string }> = [];
+            if (submission && submission.extractedUrlsJson) {
+              try {
+                extractedUrls = JSON.parse(submission.extractedUrlsJson);
+              } catch (e) {
+                console.error("Failed to parse extracted URLs JSON", e);
+              }
+            }
+            if (extractedUrls.length === 0) return null;
+            return (
+              <Card className="shadow-sm border-slate-200 overflow-hidden">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
+                  <CardTitle className="text-sm font-semibold text-slate-800 uppercase tracking-wider flex items-center">
+                    <BrainCircuit className="h-4 w-4 mr-2 text-blue-600 animate-pulse" />
+                    Extracted Digital Insights & Technical Footprint
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-5 pb-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {extractedUrls.map((item, idx) => {
+                      const isRedacted = item.url === '[REDACTED]';
+                      return (
+                        <div 
+                          key={idx} 
+                          className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-slate-50 rounded-xl border border-slate-100/80 transition-all duration-200"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-lg bg-blue-50/60 flex items-center justify-center border border-blue-100/50 text-blue-600 font-semibold text-xs uppercase">
+                              {item.platform.substring(0, 2)}
+                            </div>
+                            <div>
+                              <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">{item.platform}</span>
+                              <span className="block text-sm font-mono font-medium text-slate-700 truncate max-w-[200px]" title={item.url}>
+                                {isRedacted ? 'Locked Profile' : item.url.replace(/^https?:\/\/(www\.)?/, '')}
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            {isRedacted ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 shadow-xs">
+                                <Lock className="h-3 w-3" /> Encrypted
+                              </span>
+                            ) : (
+                              <a 
+                                href={item.url.startsWith('http') ? item.url : `https://${item.url}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50/50 hover:bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 transition-colors cursor-pointer"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" /> View Profile
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 rounded-t-xl flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center m-0">
@@ -336,7 +401,7 @@ export default function CandidateDetail() {
                     notes?.map((note: any) => (
                       <div key={note.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium text-sm text-slate-900">{note.authorEmail}</span>
+                          <span className="font-medium text-sm text-slate-900">{formatActorName(note.authorEmail)}</span>
                           <span className="text-xs text-slate-500">{new Date(note.createdAt).toLocaleString()}</span>
                         </div>
                         <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.content}</p>
