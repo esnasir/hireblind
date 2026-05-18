@@ -97,6 +97,9 @@ public class Submission {
     @Column(name = "current_company")
     private String currentCompany;
 
+    @Column(name = "state")
+    private String state;
+
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = Instant.now();

@@ -143,9 +143,9 @@ export default function CandidateDetail() {
             ) : (
               <div className="flex items-center gap-2">
                 <Button 
-                  variant="outline" 
+                  variant="default" 
                   size="sm" 
-                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 font-medium"
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium px-4 shadow-xs border-0"
                   onClick={() => shortlistMutation.mutate()}
                   disabled={shortlistMutation.isPending}
                 >
@@ -154,7 +154,7 @@ export default function CandidateDetail() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 font-medium"
+                  className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4"
                   onClick={() => setRejectOpen(true)}
                 >
                   Reject
@@ -167,7 +167,7 @@ export default function CandidateDetail() {
         {user?.role === 'ADMIN' && !isRevealed && !revealedData && (
           <Dialog open={revealOpen} onOpenChange={setRevealOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800">
+              <Button variant="default" className="bg-slate-900 hover:bg-slate-800 text-white rounded-full font-medium px-4 border-0 shadow-sm">
                 <Eye className="mr-2 h-4 w-4" /> Reveal Identity
               </Button>
             </DialogTrigger>
@@ -181,10 +181,10 @@ export default function CandidateDetail() {
                   An immutable audit event will be recorded attributing this action to your account.
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter className="mt-4">
-                <Button variant="ghost" onClick={() => setRevealOpen(false)}>Cancel</Button>
+              <DialogFooter className="mt-4 gap-2">
+                <Button variant="outline" className="rounded-full border-slate-200 text-slate-700 hover:bg-slate-100 px-4" onClick={() => setRevealOpen(false)}>Cancel</Button>
                 <Button 
-                  className="bg-amber-600 hover:bg-amber-700 text-white" 
+                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-full px-4" 
                   onClick={() => revealMutation.mutate()}
                   disabled={revealMutation.isPending}
                 >
@@ -215,10 +215,10 @@ export default function CandidateDetail() {
               placeholder="e.g., Lacks required professional years of experience in system design..."
             />
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRejectOpen(false)}>Cancel</Button>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-full border-slate-200 text-slate-700 hover:bg-slate-100 px-4" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button 
-              className="bg-red-600 hover:bg-red-700 text-white font-medium" 
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full font-medium px-4" 
               onClick={() => rejectMutation.mutate(rejectReason)}
               disabled={rejectMutation.isPending || !rejectReason.trim()}
             >

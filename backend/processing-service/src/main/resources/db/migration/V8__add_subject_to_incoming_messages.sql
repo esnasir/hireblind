@@ -1,0 +1,1 @@
+ALTER TABLE incoming_messages ADD COLUMN IF NOT EXISTS subject VARCHAR(255);

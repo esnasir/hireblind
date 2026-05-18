@@ -23,6 +23,7 @@ public class IncomingMessage {
     private UUID id;
 
     private String sourceMessageId;
+    private String subject;
     private OffsetDateTime receivedAt;
     
     // We will clear this post-processing

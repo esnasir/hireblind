@@ -265,14 +265,14 @@ export default function CampaignDetail() {
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-2">
                         <Link to={`/candidates/${sub.id}`}>
-                          <Button variant="ghost" size="sm" className="text-slate-600 hover:text-slate-800 hover:bg-slate-55">
+                          <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 px-4 transition-colors font-medium">
                             Review Profile
                           </Button>
                         </Link>
                         {sub.pipelineStage === 'REJECTED' ? (
-                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200">Rejected</Badge>
+                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 rounded-full px-3 py-0.5">Rejected</Badge>
                         ) : sub.pipelineStage === 'SHORTLISTED' ? (
-                          <Badge variant="outline" className={`font-semibold ${
+                          <Badge variant="outline" className={`font-semibold rounded-full px-3 py-0.5 ${
                             sub.shortlistTier === 'PRIMARY' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}>
                             {sub.shortlistTier}
@@ -280,9 +280,9 @@ export default function CampaignDetail() {
                         ) : (
                           <>
                             <Button
-                              variant="outline"
+                              variant="default"
                               size="sm"
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 font-medium"
+                              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium px-4 shadow-xs border-0"
                               onClick={() => shortlistMutation.mutate(sub.id)}
                               disabled={shortlistMutation.isPending}
                             >
@@ -291,7 +291,7 @@ export default function CampaignDetail() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 font-medium"
+                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4"
                               onClick={() => handleRejectClick(sub.id)}
                             >
                               Reject
@@ -371,9 +371,9 @@ export default function CampaignDetail() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2 items-center">
                           <Link to={`/candidates/${sub.id}`}>
-                            <Button variant="outline" size="sm">Review Profile</Button>
+                            <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 font-medium transition-colors">Review Profile</Button>
                           </Link>
-                          <Button variant="destructive" size="sm" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                          <Button variant="outline" size="sm" className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -426,20 +426,20 @@ export default function CampaignDetail() {
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2 items-center">
                           <Link to={`/candidates/${sub.id}`}>
-                            <Button variant="outline" size="sm">Review Profile</Button>
+                            <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 font-medium transition-colors">Review Profile</Button>
                           </Link>
                           {user?.role === 'ADMIN' && (
                             <Button
                               variant="default"
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-xs"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-medium px-4 border-0 shadow-xs"
                               onClick={() => promoteMutation.mutate(sub.id)}
                               disabled={promoteMutation.isPending || pipeline.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').length >= campaign.totalVacancies}
                             >
                               Promote to Primary
                             </Button>
                           )}
-                          <Button variant="destructive" size="sm" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                          <Button variant="outline" size="sm" className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
                         </div>
                       </TableCell>
                     </TableRow>

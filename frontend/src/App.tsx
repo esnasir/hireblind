@@ -9,6 +9,7 @@ import Campaigns from './pages/Campaigns';
 import CampaignDetail from './pages/CampaignDetail';
 import CandidateDetail from './pages/CandidateDetail';
 import AuditLog from './pages/AuditLog';
+import InboxHub from './pages/InboxHub';
 import { useAuthStore } from './store/authStore';
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ function App() {
             <Route path="/campaigns" element={<Campaigns />} />
             <Route path="/campaigns/:id" element={<CampaignDetail />} />
             <Route path="/candidates/:id" element={<CandidateDetail />} />
+            <Route path="/inbox" element={<InboxHub />} />
             
             <Route path="/audit" element={
               <AdminRoute>

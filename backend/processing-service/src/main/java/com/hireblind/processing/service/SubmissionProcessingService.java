@@ -197,10 +197,7 @@ public class SubmissionProcessingService {
         attempt.setStatus("SUCCESS");
         processingAttemptRepository.save(attempt);
 
-        // 5. Scrub PII from IncomingMessage
-        message.setSenderEmail("[SCRUBBED]");
-        message.setRawBody("[SCRUBBED]");
-        message.setExtractedText("[SCRUBBED]");
+        // 5. Update Ingestion Message Status
         message.setStatus("PROCESSED");
         incomingMessageRepository.save(message);
 
@@ -260,10 +257,7 @@ public class SubmissionProcessingService {
         attempt.setStatus("SUCCESS");
         processingAttemptRepository.save(attempt);
 
-        // Scrub PII from IncomingMessage
-        message.setSenderEmail("[SCRUBBED]");
-        message.setRawBody("[SCRUBBED]");
-        message.setExtractedText("[SCRUBBED]");
+        // Update Ingestion Message Status
         message.setStatus("PROCESSED");
         incomingMessageRepository.save(message);
 

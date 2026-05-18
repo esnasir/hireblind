@@ -96,10 +96,21 @@ public class EmailIngestionService {
 
         processMultipart(message, bodyBuilder, extractedTextBuilder, incomingMessageId, parseResult);
 
+        String subject = "No Subject";
+        try {
+            String s = message.getSubject();
+            if (s != null && !s.isBlank()) {
+                subject = s;
+            }
+        } catch (Exception e) {
+            log.warn("Failed to get subject of message: {}", e.getMessage());
+        }
+
         IncomingMessage incomingMessage = IncomingMessage.builder()
                 .id(incomingMessageId)
                 .sourceMessageId(messageId != null ? messageId : UUID.randomUUID().toString())
-                .receivedAt(OffsetDateTime.ofInstant(message.getReceivedDate().toInstant(), ZoneId.systemDefault()))
+                .subject(subject)
+                .receivedAt(OffsetDateTime.ofInstant(message.getReceivedDate() != null ? message.getReceivedDate().toInstant() : java.time.Instant.now(), ZoneId.systemDefault()))
                 .senderEmail(from)
                 .rawBody(bodyBuilder.toString())
                 .extractedText(extractedTextBuilder.toString())

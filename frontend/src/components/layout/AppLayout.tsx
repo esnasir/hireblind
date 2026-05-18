@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { Shield, LayoutDashboard, Briefcase, Users, FileText, LogOut } from 'lucide-react';
+import { Shield, LayoutDashboard, Briefcase, FileText, LogOut, Mail } from 'lucide-react';
 import { Button } from '../ui/button';
 
 export default function AppLayout() {
@@ -15,6 +15,7 @@ export default function AppLayout() {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Campaigns', path: '/campaigns', icon: Briefcase },
+    { name: 'Inbox Hub', path: '/inbox', icon: Mail },
     ...(user?.role === 'ADMIN' ? [{ name: 'Audit Log', path: '/audit', icon: FileText }] : []),
   ];
 
@@ -35,13 +36,13 @@ export default function AppLayout() {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+                className={`flex items-center px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-250 ${
                   isActive 
-                    ? 'bg-blue-50 text-blue-700' 
+                    ? 'bg-slate-900 text-white shadow-sm' 
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                <Icon className={`mr-3 h-4.5 w-4.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 {item.name}
               </Link>
             );
