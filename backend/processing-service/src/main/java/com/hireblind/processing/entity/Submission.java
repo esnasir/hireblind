@@ -91,8 +91,8 @@ public class Submission {
     @Column(name = "years_of_experience")
     private Integer yearsOfExperience;
 
-    @Column(name = "current_role")
-    private String currentRole;
+    @Column(name = "current_job_role")
+    private String currentJobRole;
 
     @Column(name = "current_company")
     private String currentCompany;
@@ -181,8 +181,8 @@ public class Submission {
     public Integer getYearsOfExperience() { return yearsOfExperience; }
     public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
 
-    public String getCurrentRole() { return currentRole; }
-    public void setCurrentRole(String currentRole) { this.currentRole = currentRole; }
+    public String getCurrentJobRole() { return currentJobRole; }
+    public void setCurrentJobRole(String currentJobRole) { this.currentJobRole = currentJobRole; }
 
     public String getCurrentCompany() { return currentCompany; }
     public void setCurrentCompany(String currentCompany) { this.currentCompany = currentCompany; }

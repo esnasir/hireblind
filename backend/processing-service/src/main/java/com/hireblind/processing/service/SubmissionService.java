@@ -169,7 +169,7 @@ public class SubmissionService {
                 name, email,
                 s.getPipelineStage(), s.getShortlistTier(), s.getShortlistPosition(),
                 phone, linkedinUrl, s.getYearsOfExperience(),
-                s.getCurrentRole(), s.getCurrentCompany()
+                s.getCurrentJobRole(), s.getCurrentCompany()
         );
     }
 

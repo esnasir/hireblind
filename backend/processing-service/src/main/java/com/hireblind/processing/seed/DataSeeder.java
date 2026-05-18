@@ -18,7 +18,7 @@ import java.util.*;
  * Seeds realistic fake candidate data for Phase 1 demo.
  * Uses hardcoded campaign UUIDs that match the Campaign Service migration.
  */
-// @Component  // Disabled: IMAP connected to real inbox. Fake seed data no longer needed.
+@Component
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
@@ -181,13 +181,13 @@ public class DataSeeder implements CommandLineRunner {
         sub.setLinkedinUrl("linkedin.com/in/" + rawName.toLowerCase().replace(" ", ""));
         sub.setYearsOfExperience(yearsExp);
         if (campaignId.equals(CAMPAIGN_BACKEND)) {
-            sub.setCurrentRole(rank % 2 == 0 ? "Senior Java Developer" : "Software Engineer");
+            sub.setCurrentJobRole(rank % 2 == 0 ? "Senior Java Developer" : "Software Engineer");
             sub.setCurrentCompany(rank % 2 == 0 ? "Fintech Solutions" : "CloudScale Tech");
         } else if (campaignId.equals(CAMPAIGN_DESIGNER)) {
-            sub.setCurrentRole(rank % 2 == 0 ? "Product Designer" : "UX Specialist");
+            sub.setCurrentJobRole(rank % 2 == 0 ? "Product Designer" : "UX Specialist");
             sub.setCurrentCompany(rank % 2 == 0 ? "DesignCraft Studio" : "SaaSify Inc");
         } else {
-            sub.setCurrentRole(rank % 2 == 0 ? "Data Analyst" : "BI Consultant");
+            sub.setCurrentJobRole(rank % 2 == 0 ? "Data Analyst" : "BI Consultant");
             sub.setCurrentCompany(rank % 2 == 0 ? "DataStream Corp" : "Insight Analytics");
         }
 

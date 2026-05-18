@@ -245,8 +245,8 @@ export default function CandidateDetail() {
               </div>
               <div>
                 <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Current Role</span>
-                <span className="text-sm font-medium text-slate-800 truncate block font-mono" title={submission.currentRole || 'N/A'}>
-                  {submission.currentRole || 'N/A'}
+                <span className="text-sm font-medium text-slate-800 truncate block font-mono" title={submission.currentJobRole || 'N/A'}>
+                  {submission.currentJobRole || 'N/A'}
                 </span>
               </div>
               <div>
