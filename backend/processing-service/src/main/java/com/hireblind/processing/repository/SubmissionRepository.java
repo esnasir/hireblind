@@ -15,6 +15,9 @@ public interface SubmissionRepository extends JpaRepository<Submission, UUID> {
     long countByCampaignId(UUID campaignId);
     long countByProcessingStatus(com.hireblind.processing.entity.ProcessingStatus status);
 
+    @Query("SELECT COUNT(s) FROM Submission s WHERE s.campaignId = :campaignId AND s.shortlistTier = :shortlistTier AND s.pipelineStage = 'SHORTLISTED'")
+    long countByCampaignIdAndShortlistTier(@Param("campaignId") UUID campaignId, @Param("shortlistTier") String shortlistTier);
+
     @Query("SELECT s FROM Submission s LEFT JOIN ScoringResult sr ON s.currentScoreId = sr.id " +
            "WHERE s.campaignId = :campaignId " +
            "ORDER BY COALESCE(sr.scoreValue, 0) DESC, s.receivedAt DESC")

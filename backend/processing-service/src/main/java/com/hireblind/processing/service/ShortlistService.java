@@ -146,7 +146,7 @@ public class ShortlistService {
         emitAuditEvent("SYSTEM_OR_USER", "CANDIDATE_REJECTED", "SUBMISSION", submissionId.toString());
     }
 
-    private CampaignResponse fetchCampaignDetails(UUID campaignId) {
+    CampaignResponse fetchCampaignDetails(UUID campaignId) {
         String token = jwtUtil.generateToken("processing-service", "ADMIN");
         return webClient.get()
                 .uri("/campaigns/{id}", campaignId)
@@ -195,6 +195,86 @@ public class ShortlistService {
             log.info("Sent shortlist email to {}", toEmail);
         } catch (Exception e) {
             log.error("Failed to send shortlist email to {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    public void promoteToPrimary(UUID submissionId, String actorEmail) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new IllegalArgumentException("Submission not found: " + submissionId));
+
+        if (!"BUFFER".equals(submission.getShortlistTier())) {
+            throw new IllegalStateException("Only BUFFER candidates can be promoted to PRIMARY.");
+        }
+
+        UUID campaignId = submission.getCampaignId();
+        CampaignResponse campaign = fetchCampaignDetails(campaignId);
+        long primaryCount = submissionRepository.countByCampaignIdAndShortlistTier(campaignId, "PRIMARY");
+
+        if (primaryCount >= campaign.getTotalVacancies()) {
+            throw new IllegalStateException("Primary tier is full. Cannot promote.");
+        }
+
+        String previousTier = submission.getShortlistTier();
+        submission.setShortlistTier("PRIMARY");
+        submission.setShortlistPosition((int) primaryCount + 1);
+        submissionRepository.save(submission);
+
+        resequenceTier(campaignId, previousTier);
+
+        // Audit event
+        emitAuditEvent(actorEmail, "BUFFER_PROMOTED_TO_PRIMARY", "SUBMISSION", submissionId.toString());
+
+        // Send shortlist email if revealed
+        if (submission.getProcessingStatus() == ProcessingStatus.REVEALED && submission.getRawCandidateEmail() != null) {
+            sendShortlistEmail(submission.getRawCandidateEmail(), submission.getRawCandidateName(), campaign.getTitle());
+        }
+    }
+
+    private void resequenceTier(UUID campaignId, String tier) {
+        List<Submission> activeInTier = submissionRepository.findByCampaignIdOrderByMatchScoreDesc(campaignId)
+                .stream()
+                .filter(s -> tier.equals(s.getShortlistTier()) && "SHORTLISTED".equals(s.getPipelineStage()))
+                .collect(Collectors.toList());
+        for (int i = 0; i < activeInTier.size(); i++) {
+            activeInTier.get(i).setShortlistPosition(i + 1);
+            submissionRepository.save(activeInTier.get(i));
+        }
+    }
+
+    public void shortlistSingleCandidate(UUID submissionId, UUID campaignId, String actorEmail) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new IllegalArgumentException("Submission not found: " + submissionId));
+        
+        CampaignResponse campaign = fetchCampaignDetails(campaignId);
+        int totalVacancies = campaign.getTotalVacancies();
+        int bufferSlotsTotal = totalVacancies * campaign.getBufferMultiplier();
+
+        long primaryCount = submissionRepository.countByCampaignIdAndShortlistTier(campaignId, "PRIMARY");
+        
+        if (primaryCount < totalVacancies) {
+            submission.setPipelineStage("SHORTLISTED");
+            submission.setShortlistTier("PRIMARY");
+            submission.setShortlistPosition((int) primaryCount + 1);
+            submission.setShortlistedAt(Instant.now());
+            submission.setShortlistedByActorEmail(actorEmail);
+        } else {
+            long bufferCount = submissionRepository.countByCampaignIdAndShortlistTier(campaignId, "BUFFER");
+            if (bufferCount < bufferSlotsTotal) {
+                submission.setPipelineStage("SHORTLISTED");
+                submission.setShortlistTier("BUFFER");
+                submission.setShortlistPosition((int) bufferCount + 1);
+                submission.setShortlistedAt(Instant.now());
+                submission.setShortlistedByActorEmail(actorEmail);
+            } else {
+                throw new IllegalStateException("Both Primary and Buffer shortlist tiers are full.");
+            }
+        }
+        
+        submissionRepository.save(submission);
+        emitAuditEvent(actorEmail, "CANDIDATE_SHORTLISTED_MANUAL", "SUBMISSION", submissionId.toString());
+        
+        if ("PRIMARY".equals(submission.getShortlistTier()) && submission.getProcessingStatus() == ProcessingStatus.REVEALED && submission.getRawCandidateEmail() != null) {
+            sendShortlistEmail(submission.getRawCandidateEmail(), submission.getRawCandidateName(), campaign.getTitle());
         }
     }
 }

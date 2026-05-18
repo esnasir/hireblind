@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { Plus, Briefcase, ChevronRight } from 'lucide-react';
+import { Plus, Briefcase, ChevronRight, Info } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 
 export default function Campaigns() {
@@ -18,6 +18,7 @@ export default function Campaigns() {
   const [newCampaign, setNewCampaign] = useState({ title: '', description: '', totalVacancies: 1, bufferMultiplier: 2 });
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
+  const [infoCampaign, setInfoCampaign] = useState<any>(null);
 
   const { data: campaigns, isLoading, error } = useQuery({
     queryKey: ['campaigns'],
@@ -244,17 +245,79 @@ export default function Campaigns() {
                   )}
                 </div>
               </CardContent>
-              <div className="p-4 pt-0 mt-auto border-t border-slate-100 bg-slate-50/50 rounded-b-xl flex justify-end">
-                <Link to={`/campaigns/${campaign.id}`}>
-                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
-                    View Candidates <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
+              <div className="p-4 border-t border-slate-100 bg-slate-50/50 rounded-b-xl flex items-center justify-between mt-auto">
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setInfoCampaign(campaign); }}
+                  className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  <Info className="w-4 h-4" />
+                  Campaign Info
+                </button>
+                <Link to={`/campaigns/${campaign.id}`} className="flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">
+                  View Candidates
+                  <ChevronRight className="w-4 h-4" />
                 </Link>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Campaign Info Dialog */}
+      <Dialog open={!!infoCampaign} onOpenChange={(open) => !open && setInfoCampaign(null)}>
+        <DialogContent className="sm:max-w-xl bg-white rounded-xl shadow-2xl p-6">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <Badge variant={infoCampaign?.status === 'ACTIVE' ? 'default' : 'secondary'} className={infoCampaign?.status === 'ACTIVE' ? 'bg-green-100 text-green-800 hover:bg-green-100' : ''}>
+                {infoCampaign?.status}
+              </Badge>
+              <span className="text-xs text-slate-400 font-mono">
+                ID: {infoCampaign?.id ? `${infoCampaign.id.slice(0, 8)}...` : ''}
+              </span>
+            </div>
+            <DialogTitle className="text-xl font-semibold mt-2">{infoCampaign?.title}</DialogTitle>
+            <DialogDescription className="text-slate-500 text-sm mt-1 leading-relaxed whitespace-pre-wrap">
+              {infoCampaign?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Vacancy & Rubric Stats Grid */}
+          <div className="grid grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-100 my-4">
+            <div className="text-center border-r border-slate-200">
+              <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Vacancies</span>
+              <span className="text-lg font-bold text-slate-800">{infoCampaign?.totalVacancies}</span>
+            </div>
+            <div className="text-center border-r border-slate-200">
+              <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Buffer Mul</span>
+              <span className="text-lg font-bold text-slate-800">{infoCampaign?.bufferMultiplier}x</span>
+            </div>
+            <div className="text-center">
+              <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total Target</span>
+              <span className="text-lg font-bold text-blue-600">
+                {(infoCampaign?.totalVacancies || 0) * (infoCampaign?.bufferMultiplier || 0)}
+              </span>
+            </div>
+          </div>
+
+          {/* Required Skills list */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-semibold text-slate-700">Required Skills</h4>
+            <div className="flex flex-wrap gap-1.5">
+              {infoCampaign?.requiredSkills?.map((skill: string) => (
+                <Badge key={skill} variant="secondary" className="px-2.5 py-0.5 text-xs bg-slate-100 text-slate-700 border border-slate-200 shadow-none">
+                  {skill}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Metadata Footer */}
+          <div className="border-t border-slate-100 pt-4 mt-6 flex justify-between text-xs text-slate-400">
+            <span>Created: {infoCampaign && new Date(infoCampaign.createdAt).toLocaleDateString()}</span>
+            <span>Last Updated: {infoCampaign && new Date(infoCampaign.updatedAt).toLocaleDateString()}</span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

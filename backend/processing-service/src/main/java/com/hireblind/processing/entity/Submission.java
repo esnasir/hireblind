@@ -82,6 +82,21 @@ public class Submission {
     @Column(name = "raw_candidate_email")
     private String rawCandidateEmail;
 
+    @Column(name = "phone")
+    private String phone;
+
+    @Column(name = "linkedin_url")
+    private String linkedinUrl;
+
+    @Column(name = "years_of_experience")
+    private Integer yearsOfExperience;
+
+    @Column(name = "current_role")
+    private String currentRole;
+
+    @Column(name = "current_company")
+    private String currentCompany;
+
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = Instant.now();
@@ -156,4 +171,19 @@ public class Submission {
 
     public String getResumeContentType() { return resumeContentType; }
     public void setResumeContentType(String resumeContentType) { this.resumeContentType = resumeContentType; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public String getLinkedinUrl() { return linkedinUrl; }
+    public void setLinkedinUrl(String linkedinUrl) { this.linkedinUrl = linkedinUrl; }
+
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
+
+    public String getCurrentRole() { return currentRole; }
+    public void setCurrentRole(String currentRole) { this.currentRole = currentRole; }
+
+    public String getCurrentCompany() { return currentCompany; }
+    public void setCurrentCompany(String currentCompany) { this.currentCompany = currentCompany; }
 }

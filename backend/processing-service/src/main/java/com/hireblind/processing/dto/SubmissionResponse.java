@@ -15,6 +15,15 @@ public record SubmissionResponse(
         int attachmentCount,
         UUID currentProfileId,
         UUID currentScoreId,
+        java.math.BigDecimal matchScore,
         String candidateName,
-        String candidateEmail
+        String candidateEmail,
+        String pipelineStage,
+        String shortlistTier,
+        Integer shortlistPosition,
+        String phone,
+        String linkedinUrl,
+        Integer yearsOfExperience,
+        String currentRole,
+        String currentCompany
 ) {}

@@ -176,6 +176,21 @@ public class DataSeeder implements CommandLineRunner {
         sub.setAttachmentCount(1);
         sub.setRawCandidateName(rawName);
         sub.setRawCandidateEmail(rawEmail);
+        
+        sub.setPhone("+1 (555) 01" + rank + "-9876");
+        sub.setLinkedinUrl("linkedin.com/in/" + rawName.toLowerCase().replace(" ", ""));
+        sub.setYearsOfExperience(yearsExp);
+        if (campaignId.equals(CAMPAIGN_BACKEND)) {
+            sub.setCurrentRole(rank % 2 == 0 ? "Senior Java Developer" : "Software Engineer");
+            sub.setCurrentCompany(rank % 2 == 0 ? "Fintech Solutions" : "CloudScale Tech");
+        } else if (campaignId.equals(CAMPAIGN_DESIGNER)) {
+            sub.setCurrentRole(rank % 2 == 0 ? "Product Designer" : "UX Specialist");
+            sub.setCurrentCompany(rank % 2 == 0 ? "DesignCraft Studio" : "SaaSify Inc");
+        } else {
+            sub.setCurrentRole(rank % 2 == 0 ? "Data Analyst" : "BI Consultant");
+            sub.setCurrentCompany(rank % 2 == 0 ? "DataStream Corp" : "Insight Analytics");
+        }
+
         sub = submissionRepo.save(sub);
 
         AnonymizedProfile profile = new AnonymizedProfile();

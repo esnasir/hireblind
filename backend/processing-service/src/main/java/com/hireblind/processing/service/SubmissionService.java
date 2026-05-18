@@ -147,15 +147,29 @@ public class SubmissionService {
     private SubmissionResponse toResponse(Submission s) {
         String name = null;
         String email = null;
+        String phone = null;
+        String linkedinUrl = null;
         if (s.getProcessingStatus() == com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
             name = s.getRawCandidateName();
             email = s.getRawCandidateEmail();
+            phone = s.getPhone();
+            linkedinUrl = s.getLinkedinUrl();
+        }
+        java.math.BigDecimal matchScore = null;
+        if (s.getCurrentScoreId() != null) {
+            matchScore = scoringRepository.findById(s.getCurrentScoreId())
+                    .map(com.hireblind.processing.entity.ScoringResult::getScoreValue)
+                    .orElse(null);
         }
         return new SubmissionResponse(
                 s.getId(), s.getCampaignId(), s.getCandidateLabel(),
                 s.getReceivedAt(), s.getProcessingStatus().name(),
                 s.getAttachmentCount(), s.getCurrentProfileId(), s.getCurrentScoreId(),
-                name, email
+                matchScore,
+                name, email,
+                s.getPipelineStage(), s.getShortlistTier(), s.getShortlistPosition(),
+                phone, linkedinUrl, s.getYearsOfExperience(),
+                s.getCurrentRole(), s.getCurrentCompany()
         );
     }
 

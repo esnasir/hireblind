@@ -42,4 +42,23 @@ public class ShortlistController {
         shortlistService.rejectCandidate(id, reason);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/submissions/{id}/promote")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> promoteToPrimary(@PathVariable UUID id, Authentication auth) {
+        String actorEmail = auth.getName();
+        shortlistService.promoteToPrimary(id, actorEmail);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/submissions/{id}/shortlist")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER')")
+    public ResponseEntity<Void> shortlistSingleCandidate(
+            @PathVariable UUID id,
+            @RequestParam UUID campaignId,
+            Authentication auth) {
+        String actorEmail = auth.getName();
+        shortlistService.shortlistSingleCandidate(id, campaignId, actorEmail);
+        return ResponseEntity.ok().build();
+    }
 }

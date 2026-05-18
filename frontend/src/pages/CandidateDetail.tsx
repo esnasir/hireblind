@@ -17,6 +17,9 @@ export default function CandidateDetail() {
   const [revealOpen, setRevealOpen] = useState(false);
   const [revealedData, setRevealedData] = useState<{candidateName: string, candidateEmail: string} | null>(null);
   const [newNote, setNewNote] = useState('');
+  
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const { data: submission, isLoading: loadingSub } = useQuery({
     queryKey: ['submission', id],
@@ -46,6 +49,22 @@ export default function CandidateDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes', id] });
       setNewNote('');
+    },
+  });
+
+  const shortlistMutation = useMutation({
+    mutationFn: () => api.post(`/submissions/${id}/shortlist?campaignId=${submission.campaignId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submission', id] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (reason: string) => api.post(`/submissions/${id}/shortlist/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['submission', id] });
+      setRejectOpen(false);
+      setRejectReason('');
     },
   });
 
@@ -87,7 +106,7 @@ export default function CandidateDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <Link to={`/campaigns/${submission.campaignId}`} className="text-sm font-medium text-slate-500 hover:text-slate-900 inline-flex items-center mb-4 transition-colors">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back to Campaign
@@ -108,6 +127,41 @@ export default function CandidateDetail() {
           {(revealedData?.candidateEmail || submission.candidateEmail) && (
             <p className="text-slate-600 mt-1 ml-14">{revealedData?.candidateEmail || submission.candidateEmail}</p>
           )}
+
+          {/* D.1 State button details */}
+          <div className="flex items-center gap-3 mt-4 ml-14">
+            {submission.pipelineStage === 'REJECTED' ? (
+              <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 font-semibold px-3 py-1">
+                REJECTED
+              </Badge>
+            ) : submission.pipelineStage === 'SHORTLISTED' ? (
+              <Badge variant="outline" className={`font-semibold px-3 py-1 ${
+                submission.shortlistTier === 'PRIMARY' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}>
+                SHORTLISTED ({submission.shortlistTier})
+              </Badge>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 font-medium"
+                  onClick={() => shortlistMutation.mutate()}
+                  disabled={shortlistMutation.isPending}
+                >
+                  Add to Shortlist
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 font-medium"
+                  onClick={() => setRejectOpen(true)}
+                >
+                  Reject
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {user?.role === 'ADMIN' && !isRevealed && !revealedData && (
@@ -142,9 +196,85 @@ export default function CandidateDetail() {
         )}
       </div>
 
+      {/* Reject Dialogue Modal */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <XCircle className="mr-2 h-5 w-5" /> Reject Candidate
+            </DialogTitle>
+            <DialogDescription className="pt-2 text-slate-600">
+              Please specify the reason for rejecting this candidate. This will exclude them from the active shortlist pipeline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm outline-none focus:ring-2 focus:ring-red-500 min-h-[100px]"
+              placeholder="e.g., Lacks required professional years of experience in system design..."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white font-medium" 
+              onClick={() => rejectMutation.mutate(rejectReason)}
+              disabled={rejectMutation.isPending || !rejectReason.trim()}
+            >
+              {rejectMutation.isPending ? 'Rejecting...' : 'Confirm Rejection'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Anonymized Profile */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Profile Overview Grid Section */}
+          <Card className="shadow-sm border-slate-200 overflow-hidden">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
+              <CardTitle className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Candidate Profile Overview</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Experience</span>
+                <span className="text-sm font-medium text-slate-800">
+                  {submission.yearsOfExperience !== null && submission.yearsOfExperience !== undefined ? `${submission.yearsOfExperience} Years` : 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Current Role</span>
+                <span className="text-sm font-medium text-slate-800 truncate block font-mono" title={submission.currentRole || 'N/A'}>
+                  {submission.currentRole || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Current Company</span>
+                <span className="text-sm font-medium text-slate-800 truncate block font-mono" title={submission.currentCompany || 'N/A'}>
+                  {submission.currentCompany || 'N/A'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Contact Info</span>
+                {isRevealed ? (
+                  <div className="text-xs text-slate-700 space-y-0.5">
+                    <span className="block font-mono font-medium">{submission.phone || 'No phone'}</span>
+                    <span className="block text-blue-600 hover:underline truncate" title={submission.linkedinUrl || ''}>
+                      {submission.linkedinUrl ? (
+                        <a href={`https://${submission.linkedinUrl}`} target="_blank" rel="noopener noreferrer">{submission.linkedinUrl}</a>
+                      ) : 'No LinkedIn'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-100 inline-block">
+                    Locked (Masked PII)
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="shadow-sm border-slate-200">
             <CardHeader className="bg-slate-50/50 border-b border-slate-100 rounded-t-xl flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center m-0">
@@ -273,6 +403,22 @@ export default function CandidateDetail() {
                       )}
                     </div>
                   </div>
+
+                  {/* D.3 missing skills card experienceGaps category */}
+                  {score?.experienceGaps && score.experienceGaps.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-900 mb-3 flex items-center">
+                        <ShieldAlert className="h-4 w-4 mr-1 text-amber-500" /> Experience Gaps
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {score.experienceGaps.map((gap: string) => (
+                          <Badge key={gap} variant="outline" className="text-amber-700 bg-amber-50 border-amber-200 font-normal">
+                            {gap}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {score?.explainabilityTags && score.explainabilityTags.length > 0 && (
                     <div className="pt-4 border-t border-slate-100">
