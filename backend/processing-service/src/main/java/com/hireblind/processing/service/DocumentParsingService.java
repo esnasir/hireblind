@@ -9,12 +9,50 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
+
+import jakarta.mail.Part;
+import com.hireblind.processing.dto.DocumentParseResult;
 
 @Service
 @Slf4j
 public class DocumentParsingService {
 
     private static final long MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+    /**
+     * Parses text from an attachment and stores it to disk.
+     */
+    public DocumentParseResult parseAndStore(Part attachment, UUID incomingMessageId) {
+        try {
+            String filename = attachment.getFileName();
+            String ext = "";
+            if (filename != null && filename.contains(".")) {
+                ext = filename.substring(filename.lastIndexOf('.'));
+            }
+            byte[] bytes = attachment.getInputStream().readAllBytes();
+            
+            Path storageDir = Paths.get("/app/resumes");
+            if (!Files.exists(storageDir)) {
+                Files.createDirectories(storageDir);
+            }
+            
+            Path storagePath = storageDir.resolve(incomingMessageId + ext);
+            Files.write(storagePath, bytes);
+            
+            String extractedText = ".pdf".equalsIgnoreCase(ext) 
+                ? parsePdf(bytes) 
+                : parseDocx(new ByteArrayInputStream(bytes));
+            
+            return new DocumentParseResult(extractedText, storagePath.toString(), filename, bytes.length, attachment.getContentType());
+        } catch (Exception e) {
+            log.error("Error parsing and storing document: {}", e.getMessage());
+            return new DocumentParseResult("[Document parsing failed: " + e.getMessage() + "]", null, null, 0, null);
+        }
+    }
 
     /**
      * Parses text from a PDF or DOCX file represented as a byte array.

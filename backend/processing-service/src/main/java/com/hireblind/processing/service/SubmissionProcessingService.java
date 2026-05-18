@@ -132,6 +132,13 @@ public class SubmissionProcessingService {
         submission.setProcessingStatus(ProcessingStatus.PROCESSING);
         submission.setRawCandidateEmail(message.getSenderEmail());
         submission.setRawCandidateName("Unknown Candidate");
+
+        // Copy resume metadata parsed during ingestion
+        submission.setResumeFilePath(message.getResumeFilePath());
+        submission.setResumeOriginalFilename(message.getResumeOriginalFilename());
+        submission.setResumeFileSizeBytes(message.getResumeFileSizeBytes());
+        submission.setResumeContentType(message.getResumeContentType());
+
         submission = submissionRepository.save(submission);
 
         // 2. Manage Attempt
@@ -178,6 +185,9 @@ public class SubmissionProcessingService {
         score = scoringRepository.save(score);
 
         // 3. Update Submission
+        if (llmResult.getCandidateName() != null && !llmResult.getCandidateName().isBlank()) {
+            submission.setRawCandidateName(llmResult.getCandidateName());
+        }
         submission.setCurrentProfileId(profile.getId());
         submission.setCurrentScoreId(score.getId());
         submission.setProcessingStatus(ProcessingStatus.COMPLETED);

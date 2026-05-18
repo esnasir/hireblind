@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, User, BrainCircuit, ShieldAlert, Eye, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { ArrowLeft, User, BrainCircuit, ShieldAlert, Eye, CheckCircle2, XCircle, FileText, Download, MessageSquare, Send } from 'lucide-react';
 
 export default function CandidateDetail() {
   const { id } = useParams();
@@ -16,6 +16,7 @@ export default function CandidateDetail() {
   const queryClient = useQueryClient();
   const [revealOpen, setRevealOpen] = useState(false);
   const [revealedData, setRevealedData] = useState<{candidateName: string, candidateEmail: string} | null>(null);
+  const [newNote, setNewNote] = useState('');
 
   const { data: submission, isLoading: loadingSub } = useQuery({
     queryKey: ['submission', id],
@@ -34,6 +35,20 @@ export default function CandidateDetail() {
     enabled: !!submission?.currentScoreId,
   });
 
+  const { data: notes, isLoading: loadingNotes } = useQuery({
+    queryKey: ['notes', id],
+    queryFn: () => api.get(`/submissions/${id}/notes`).then(res => res.data),
+    enabled: !!submission && submission.processingStatus === 'REVEALED',
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: (content: string) => api.post(`/submissions/${id}/notes`, { content }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes', id] });
+      setNewNote('');
+    },
+  });
+
   const revealMutation = useMutation({
     mutationFn: () => api.post(`/submissions/${id}/reveal`),
     onSuccess: (res) => {
@@ -48,6 +63,28 @@ export default function CandidateDetail() {
 
   const isRevealed = submission.processingStatus === 'REVEALED';
 
+  const handleDownloadResume = async () => {
+    try {
+      const res = await api.get(`/submissions/${id}/resume`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const contentDisposition = res.headers['content-disposition'];
+      let filename = 'resume.pdf';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+      }
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      console.error('Failed to download resume', err);
+      alert('Failed to download resume. It may not exist or you do not have permission.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -60,7 +97,7 @@ export default function CandidateDetail() {
               <User className="h-5 w-5 text-slate-600" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 font-mono">
-              {revealedData?.candidateName || (isRevealed ? "Identity Revealed (Refresh to load)" : submission.candidateLabel)}
+              {revealedData?.candidateName || submission.candidateName || submission.candidateLabel}
             </h1>
             <Badge variant="outline" className={`font-normal ml-2 ${
               isRevealed ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
@@ -68,8 +105,8 @@ export default function CandidateDetail() {
               {submission.processingStatus}
             </Badge>
           </div>
-          {revealedData?.candidateEmail && (
-            <p className="text-slate-600 mt-1 ml-14">{revealedData.candidateEmail}</p>
+          {(revealedData?.candidateEmail || submission.candidateEmail) && (
+            <p className="text-slate-600 mt-1 ml-14">{revealedData?.candidateEmail || submission.candidateEmail}</p>
           )}
         </div>
 
@@ -109,11 +146,16 @@ export default function CandidateDetail() {
         {/* Left Column - Anonymized Profile */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="shadow-sm border-slate-200">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 rounded-t-xl">
-              <CardTitle className="text-lg flex items-center">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 rounded-t-xl flex flex-row items-center justify-between">
+              <CardTitle className="text-lg flex items-center m-0">
                 <FileText className="mr-2 h-5 w-5 text-slate-400" />
-                Anonymized Experience
+                {isRevealed ? "Candidate Experience" : "Anonymized Experience"}
               </CardTitle>
+              {isRevealed && (
+                <Button onClick={handleDownloadResume} variant="outline" size="sm" className="text-blue-600 border-blue-200 hover:bg-blue-50 shrink-0">
+                  <Download className="mr-2 h-4 w-4" /> Original Resume
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="pt-6">
               {loadingProfile ? <Skeleton className="h-32 w-full" /> : (
@@ -130,6 +172,51 @@ export default function CandidateDetail() {
               )}
             </CardContent>
           </Card>
+
+          {isRevealed && (
+            <Card className="shadow-sm border-slate-200 mt-6">
+              <CardHeader className="bg-slate-50/50 border-b border-slate-100 rounded-t-xl">
+                <CardTitle className="text-lg flex items-center">
+                  <MessageSquare className="mr-2 h-5 w-5 text-slate-400" />
+                  Recruiter Notes
+                </CardTitle>
+                <CardDescription>Private notes visible only to your team.</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex gap-2">
+                  <textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-slate-200 rounded-md text-sm outline-none focus:ring-2 focus:ring-blue-500 min-h-[80px]"
+                    placeholder="Add a note about this candidate..."
+                  />
+                  <Button 
+                    onClick={() => addNoteMutation.mutate(newNote)}
+                    disabled={!newNote.trim() || addNoteMutation.isPending}
+                    className="self-end bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Send className="mr-2 h-4 w-4" /> {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
+                  </Button>
+                </div>
+
+                <div className="space-y-4 mt-6">
+                  {loadingNotes ? <Skeleton className="h-20 w-full" /> : notes?.length === 0 ? (
+                    <p className="text-sm text-slate-500 italic text-center py-4 border-t border-slate-100 mt-4">No notes yet. Be the first to add one.</p>
+                  ) : (
+                    notes?.map((note: any) => (
+                      <div key={note.id} className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="font-medium text-sm text-slate-900">{note.authorEmail}</span>
+                          <span className="text-xs text-slate-500">{new Date(note.createdAt).toLocaleString()}</span>
+                        </div>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">{note.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column - Score Explainability */}

@@ -47,6 +47,8 @@ public class CampaignService {
         campaign.setDescription(request.description());
         campaign.setRequiredSkillsJson(toJson(request.requiredSkills()));
         campaign.setScreeningRulesJson(toJson(request.screeningRules()));
+        if (request.totalVacancies() != null) campaign.setTotalVacancies(request.totalVacancies());
+        if (request.bufferMultiplier() != null) campaign.setBufferMultiplier(request.bufferMultiplier());
         campaign.setStatus(CampaignStatus.DRAFT);
         campaign.setOwnerUserId(ownerUserId);
 
@@ -82,6 +84,8 @@ public class CampaignService {
         if (request.description() != null) campaign.setDescription(request.description());
         if (request.requiredSkills() != null) campaign.setRequiredSkillsJson(toJson(request.requiredSkills()));
         if (request.screeningRules() != null) campaign.setScreeningRulesJson(toJson(request.screeningRules()));
+        if (request.totalVacancies() != null) campaign.setTotalVacancies(request.totalVacancies());
+        if (request.bufferMultiplier() != null) campaign.setBufferMultiplier(request.bufferMultiplier());
 
         campaign = campaignRepository.save(campaign);
         return toResponse(campaign);
@@ -135,7 +139,8 @@ public class CampaignService {
                 fromJson(c.getRequiredSkillsJson(), List.class),
                 fromJson(c.getScreeningRulesJson(), Map.class),
                 c.getStatus().name(),
-                c.getOwnerUserId(), c.getCreatedAt(), c.getUpdatedAt()
+                c.getOwnerUserId(), c.getCreatedAt(), c.getUpdatedAt(),
+                c.getTotalVacancies(), c.getBufferMultiplier()
         );
     }
 

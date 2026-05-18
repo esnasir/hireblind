@@ -13,7 +13,7 @@ export default function AppLayout() {
   }
 
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Campaigns', path: '/campaigns', icon: Briefcase },
     ...(user?.role === 'ADMIN' ? [{ name: 'Audit Log', path: '/audit', icon: FileText }] : []),
   ];

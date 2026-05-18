@@ -17,5 +17,10 @@ public record CampaignResponse(
         String status,
         UUID ownerUserId,
         Instant createdAt,
-        Instant updatedAt
-) {}
+        Instant updatedAt,
+        int totalVacancies,
+        int bufferMultiplier
+) {
+    public int getPrimarySlotsTotal() { return totalVacancies; }
+    public int getBufferSlotsTotal() { return totalVacancies * bufferMultiplier; }
+}

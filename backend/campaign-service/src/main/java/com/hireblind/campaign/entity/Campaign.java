@@ -39,6 +39,12 @@ public class Campaign {
     @Column(name = "owner_user_id", nullable = false)
     private UUID ownerUserId;
 
+    @Column(name = "total_vacancies", nullable = false)
+    private Integer totalVacancies = 1;
+
+    @Column(name = "buffer_multiplier", nullable = false)
+    private Integer bufferMultiplier = 2;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -81,4 +87,10 @@ public class Campaign {
 
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    public Integer getTotalVacancies() { return totalVacancies; }
+    public void setTotalVacancies(Integer totalVacancies) { this.totalVacancies = totalVacancies; }
+
+    public Integer getBufferMultiplier() { return bufferMultiplier; }
+    public void setBufferMultiplier(Integer bufferMultiplier) { this.bufferMultiplier = bufferMultiplier; }
 }

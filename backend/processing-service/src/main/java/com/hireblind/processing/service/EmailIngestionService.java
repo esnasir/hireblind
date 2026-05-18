@@ -90,11 +90,14 @@ public class EmailIngestionService {
 
         StringBuilder bodyBuilder = new StringBuilder();
         StringBuilder extractedTextBuilder = new StringBuilder();
+        
+        UUID incomingMessageId = UUID.randomUUID();
+        com.hireblind.processing.dto.DocumentParseResult[] parseResult = new com.hireblind.processing.dto.DocumentParseResult[1];
 
-        processMultipart(message, bodyBuilder, extractedTextBuilder);
+        processMultipart(message, bodyBuilder, extractedTextBuilder, incomingMessageId, parseResult);
 
         IncomingMessage incomingMessage = IncomingMessage.builder()
-                .id(UUID.randomUUID())
+                .id(incomingMessageId)
                 .sourceMessageId(messageId != null ? messageId : UUID.randomUUID().toString())
                 .receivedAt(OffsetDateTime.ofInstant(message.getReceivedDate().toInstant(), ZoneId.systemDefault()))
                 .senderEmail(from)
@@ -103,12 +106,19 @@ public class EmailIngestionService {
                 .status("PENDING")
                 .createdAt(OffsetDateTime.now())
                 .build();
+                
+        if (parseResult[0] != null) {
+            incomingMessage.setResumeFilePath(parseResult[0].filePath());
+            incomingMessage.setResumeOriginalFilename(parseResult[0].originalFilename());
+            incomingMessage.setResumeFileSizeBytes(parseResult[0].fileSizeBytes());
+            incomingMessage.setResumeContentType(parseResult[0].contentType());
+        }
 
         incomingMessageRepository.save(incomingMessage);
         log.info("Saved incoming message from {} with ID {}", from, incomingMessage.getId());
     }
 
-    private void processMultipart(Part part, StringBuilder bodyBuilder, StringBuilder extractedTextBuilder) throws MessagingException, IOException {
+    private void processMultipart(Part part, StringBuilder bodyBuilder, StringBuilder extractedTextBuilder, UUID incomingMessageId, com.hireblind.processing.dto.DocumentParseResult[] parseResult) throws MessagingException, IOException {
         if (part.isMimeType("text/plain")) {
             bodyBuilder.append((String) part.getContent());
         } else if (part.isMimeType("text/html")) {
@@ -120,15 +130,17 @@ public class EmailIngestionService {
         } else if (part.isMimeType("multipart/*")) {
             Multipart multipart = (Multipart) part.getContent();
             for (int i = 0; i < multipart.getCount(); i++) {
-                processMultipart(multipart.getBodyPart(i), bodyBuilder, extractedTextBuilder);
+                processMultipart(multipart.getBodyPart(i), bodyBuilder, extractedTextBuilder, incomingMessageId, parseResult);
             }
         } else if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()) || Part.INLINE.equalsIgnoreCase(part.getDisposition())) {
             String fileName = part.getFileName();
             if (fileName != null && (fileName.toLowerCase().endsWith(".pdf") || fileName.toLowerCase().endsWith(".docx"))) {
-                byte[] bytes = part.getInputStream().readAllBytes();
-                String extracted = documentParsingService.parseDocument(bytes, fileName);
+                com.hireblind.processing.dto.DocumentParseResult res = documentParsingService.parseAndStore(part, incomingMessageId);
+                if (parseResult[0] == null) {
+                    parseResult[0] = res; // Store the first attachment's metadata
+                }
                 extractedTextBuilder.append("\n--- Attachment: ").append(fileName).append(" ---\n");
-                extractedTextBuilder.append(extracted).append("\n");
+                extractedTextBuilder.append(res.extractedText()).append("\n");
             }
         }
     }

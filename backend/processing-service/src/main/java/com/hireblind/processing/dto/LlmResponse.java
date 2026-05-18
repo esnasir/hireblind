@@ -12,6 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LlmResponse {
+    private String candidateName;
     private List<String> extractedSkills;
     private String experienceSummary;
     private String educationSummary;

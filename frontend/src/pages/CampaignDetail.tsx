@@ -18,6 +18,11 @@ export default function CampaignDetail() {
 
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [confirmTitle, setConfirmTitle] = React.useState('');
+  
+  const [activeTab, setActiveTab] = React.useState<'ALL' | 'PIPELINE'>('ALL');
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [rejectCandidateId, setRejectCandidateId] = React.useState<string | null>(null);
+  const [rejectReason, setRejectReason] = React.useState('');
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/campaigns/${id}`),
@@ -46,6 +51,35 @@ export default function CampaignDetail() {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
     },
   });
+
+  const generateShortlistMutation = useMutation({
+    mutationFn: () => api.post(`/campaigns/${id}/shortlist/generate`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
+    },
+  });
+
+  const approveBufferMutation = useMutation({
+    mutationFn: (subId: string) => api.post(`/submissions/${subId}/shortlist/approve-buffer`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ subId, reason }: { subId: string, reason: string }) => api.post(`/submissions/${subId}/shortlist/reject`, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
+      setRejectOpen(false);
+      setRejectReason('');
+      setRejectCandidateId(null);
+    },
+  });
+
+  const handleRejectClick = (subId: string) => {
+    setRejectCandidateId(subId);
+    setRejectOpen(true);
+  };
 
   if (isLoadingCampaign) return <div className="space-y-4"><Skeleton className="h-8 w-1/3"/><Skeleton className="h-24 w-full"/></div>;
   if (!campaign) return <div>Campaign not found</div>;
@@ -103,69 +137,236 @@ export default function CampaignDetail() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900">Anonymized Candidates</h2>
-            <p className="text-sm text-slate-500">Ranked by AI match score. PII is hidden until explicitly revealed.</p>
+      <div className="flex border-b border-slate-200 mb-6">
+        <button 
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'ALL' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('ALL')}
+        >
+          All Candidates
+        </button>
+        <button 
+          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'PIPELINE' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('PIPELINE')}
+        >
+          Shortlist Pipeline
+        </button>
+      </div>
+
+      {activeTab === 'ALL' && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Anonymized Candidates</h2>
+              <p className="text-sm text-slate-500">Ranked by AI match score. PII is hidden until explicitly revealed.</p>
+            </div>
+            {user?.role === 'ADMIN' && campaign.status === 'CLOSED' && (
+              <Button onClick={() => generateShortlistMutation.mutate()} disabled={generateShortlistMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
+                {generateShortlistMutation.isPending ? 'Generating...' : 'Generate Shortlist'}
+              </Button>
+            )}
+          </div>
+
+          {isLoadingSubmissions ? (
+            <div className="p-6 space-y-4">
+              {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+            </div>
+          ) : submissions?.length === 0 ? (
+            <div className="text-center py-12">
+              <User className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+              <h3 className="text-lg font-medium text-slate-900">No candidates yet</h3>
+              <p className="text-slate-500 mt-1">Wait for applications to be submitted and processed.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="w-[150px]">Candidate</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Pipeline Stage</TableHead>
+                  <TableHead>Received</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions.map((sub: any) => (
+                  <TableRow key={sub.id} className="hover:bg-slate-50/50 cursor-default transition-colors">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mr-3 border border-slate-200">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`font-normal ${
+                        sub.processingStatus === 'SCORED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
+                        sub.processingStatus === 'REVEALED' ? 'bg-amber-50 text-amber-700 border-amber-200' : ''
+                      }`}>
+                        {sub.processingStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal bg-slate-50">
+                        {sub.pipelineStage || 'SCREENED'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-slate-500 text-sm">
+                      {new Date(sub.receivedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link to={`/candidates/${sub.id}`}>
+                        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
+                          Review Profile <ChevronRight className="ml-1 h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'PIPELINE' && (
+        <div className="space-y-8">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-blue-200 bg-blue-50/50">
+              <h2 className="text-lg font-semibold text-blue-900">Primary Candidates</h2>
+              <p className="text-sm text-blue-700">Top-ranked candidates selected for immediate review.</p>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="w-[150px]">Candidate</TableHead>
+                  <TableHead>Match Score</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions?.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').map((sub: any) => (
+                  <TableRow key={sub.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-blue-100 text-blue-800">Rank #{sub.shortlistPosition}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right flex justify-end gap-2">
+                      <Link to={`/candidates/${sub.id}`}>
+                        <Button variant="outline" size="sm">Review Profile</Button>
+                      </Link>
+                      <Button variant="destructive" size="sm" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {submissions?.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').length === 0 && (
+                  <TableRow><TableCell colSpan={3} className="text-center text-slate-500 py-6">No primary candidates.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-amber-200 bg-amber-50/50">
+              <h2 className="text-lg font-semibold text-amber-900">Buffer Candidates</h2>
+              <p className="text-sm text-amber-700">Backup candidates available if a primary candidate is rejected.</p>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="w-[150px]">Candidate</TableHead>
+                  <TableHead>Match Score</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions?.filter((s: any) => s.shortlistTier === 'BUFFER' && s.pipelineStage === 'SHORTLISTED').map((sub: any) => (
+                  <TableRow key={sub.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-amber-100 text-amber-800">Buffer #{sub.shortlistPosition}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right flex justify-end gap-2">
+                      <Link to={`/candidates/${sub.id}`}>
+                        <Button variant="outline" size="sm">Review Profile</Button>
+                      </Link>
+                      <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => approveBufferMutation.mutate(sub.id)}>
+                        Approve to Primary
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {submissions?.filter((s: any) => s.shortlistTier === 'BUFFER' && s.pipelineStage === 'SHORTLISTED').length === 0 && (
+                  <TableRow><TableCell colSpan={3} className="text-center text-slate-500 py-6">No buffer candidates.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-red-200 bg-red-50/50">
+              <h2 className="text-lg font-semibold text-red-900">Rejected Candidates</h2>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="w-[150px]">Candidate</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').map((sub: any) => (
+                  <TableRow key={sub.id}>
+                    <TableCell className="font-medium">
+                      <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                    </TableCell>
+                    <TableCell className="text-slate-600">{sub.rejectionReason}</TableCell>
+                  </TableRow>
+                ))}
+                {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').length === 0 && (
+                  <TableRow><TableCell colSpan={2} className="text-center text-slate-500 py-6">No rejected candidates.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
+      )}
 
-        {isLoadingSubmissions ? (
-          <div className="p-6 space-y-4">
-            {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Candidate</DialogTitle>
+            <DialogDescription>Please provide a reason for rejecting this candidate.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rejection Reason</label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                rows={3}
+                placeholder="e.g. Lacks required years of experience..."
+              />
+            </div>
           </div>
-        ) : submissions?.length === 0 ? (
-          <div className="text-center py-12">
-            <User className="mx-auto h-12 w-12 text-slate-300 mb-4" />
-            <h3 className="text-lg font-medium text-slate-900">No candidates yet</h3>
-            <p className="text-slate-500 mt-1">Wait for applications to be submitted and processed.</p>
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50">
-                <TableHead className="w-[150px]">Candidate</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Received</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {submissions.map((sub: any) => (
-                <TableRow key={sub.id} className="hover:bg-slate-50/50 cursor-default transition-colors">
-                  <TableCell className="font-medium">
-                    <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mr-3 border border-slate-200">
-                        <User className="h-4 w-4" />
-                      </div>
-                      <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`font-normal ${
-                      sub.processingStatus === 'SCORED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                      sub.processingStatus === 'REVEALED' ? 'bg-amber-50 text-amber-700 border-amber-200' : ''
-                    }`}>
-                      {sub.processingStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-slate-500 text-sm">
-                    {new Date(sub.receivedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Link to={`/candidates/${sub.id}`}>
-                      <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
-                        Review Profile <ChevronRight className="ml-1 h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button variant="destructive" disabled={!rejectReason || rejectMutation.isPending} onClick={() => rejectCandidateId && rejectMutation.mutate({ subId: rejectCandidateId, reason: rejectReason })}>
+              {rejectMutation.isPending ? 'Rejecting...' : 'Reject Candidate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {user?.role === 'ADMIN' && campaign.status === 'ARCHIVED' && (
         <div className="mt-8 border border-red-200 rounded-xl overflow-hidden shadow-sm bg-white">

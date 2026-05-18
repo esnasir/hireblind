@@ -13,6 +13,14 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import com.hireblind.processing.entity.Submission;
 
 @RestController
 @RequestMapping("/submissions")
@@ -72,5 +80,51 @@ public class SubmissionController {
     public ResponseEntity<Map<String, Long>> stats() {
         log.info("GET /submissions/stats");
         return ResponseEntity.ok(submissionService.getStats());
+    }
+
+    @GetMapping("/{id}/resume")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Resource> downloadResume(@PathVariable UUID id) {
+        Submission submission = submissionService.getSubmissionEntity(id);
+        
+        if (submission.getResumeFilePath() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        // Only allow download if identity has been revealed
+        if (submission.getProcessingStatus() != com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        Path path = Paths.get(submission.getResumeFilePath());
+        Resource resource = new FileSystemResource(path);
+        
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"" + submission.getResumeOriginalFilename() + "\"")
+            .contentType(MediaType.parseMediaType(
+                submission.getResumeContentType() != null 
+                    ? submission.getResumeContentType() 
+                    : "application/octet-stream"))
+            .body(resource);
+    }
+
+    @GetMapping("/{id}/notes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
+    public ResponseEntity<List<CandidateNoteDto>> getNotes(@PathVariable UUID id) {
+        log.info("GET /submissions/{}/notes", id);
+        return ResponseEntity.ok(submissionService.getNotes(id));
+    }
+
+    @PostMapping("/{id}/notes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECRUITER')")
+    public ResponseEntity<CandidateNoteDto> addNote(
+            @PathVariable UUID id,
+            @RequestBody @jakarta.validation.Valid CreateNoteRequest request,
+            Authentication auth) {
+        // We'll use the user's ID/email from the principal
+        String author = auth.getName() != null ? auth.getName() : auth.getPrincipal().toString();
+        log.info("POST /submissions/{}/notes by {}", id, author);
+        return ResponseEntity.ok(submissionService.addNote(id, author, request.content()));
     }
 }

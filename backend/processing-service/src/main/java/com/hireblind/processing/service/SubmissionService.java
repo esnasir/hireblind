@@ -3,8 +3,9 @@ package com.hireblind.processing.service;
 import com.hireblind.processing.dto.*;
 import com.hireblind.processing.entity.*;
 import com.hireblind.processing.repository.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,7 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final AnonymizedProfileRepository profileRepository;
     private final ScoringResultRepository scoringRepository;
+    private final CandidateNoteRepository noteRepository;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final String auditServiceUrl;
@@ -35,11 +37,13 @@ public class SubmissionService {
     public SubmissionService(SubmissionRepository submissionRepository,
                              AnonymizedProfileRepository profileRepository,
                              ScoringResultRepository scoringRepository,
+                             CandidateNoteRepository noteRepository,
                              ObjectMapper objectMapper,
                              @Value("${audit.service.url}") String auditServiceUrl) {
         this.submissionRepository = submissionRepository;
         this.profileRepository = profileRepository;
         this.scoringRepository = scoringRepository;
+        this.noteRepository = noteRepository;
         this.objectMapper = objectMapper;
         this.restTemplate = new RestTemplate();
         this.auditServiceUrl = auditServiceUrl;
@@ -48,7 +52,7 @@ public class SubmissionService {
     @Transactional(readOnly = true)
     public List<SubmissionResponse> listByCampaign(UUID campaignId) {
         List<Submission> submissions = (campaignId != null)
-                ? submissionRepository.findByCampaignIdOrderByReceivedAtDesc(campaignId)
+                ? submissionRepository.findByCampaignIdOrderByMatchScoreDesc(campaignId)
                 : submissionRepository.findAll();
         return submissions.stream().map(this::toResponse).toList();
     }
@@ -56,6 +60,11 @@ public class SubmissionService {
     @Transactional(readOnly = true)
     public SubmissionResponse getById(UUID id) {
         return toResponse(findOrThrow(id));
+    }
+
+    @Transactional(readOnly = true)
+    public Submission getSubmissionEntity(UUID id) {
+        return findOrThrow(id);
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +118,25 @@ public class SubmissionService {
                 .map(this::toResponse).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<CandidateNoteDto> getNotes(UUID submissionId) {
+        return noteRepository.findBySubmissionIdOrderByCreatedAtDesc(submissionId).stream()
+                .map(n -> new CandidateNoteDto(n.getId(), n.getSubmissionId(), n.getAuthorEmail(), n.getContent(), n.getCreatedAt()))
+                .toList();
+    }
+
+    public CandidateNoteDto addNote(UUID submissionId, String authorEmail, String content) {
+        Submission sub = findOrThrow(submissionId);
+        
+        CandidateNote note = new CandidateNote();
+        note.setSubmissionId(sub.getId());
+        note.setAuthorEmail(authorEmail);
+        note.setContent(content);
+        
+        CandidateNote saved = noteRepository.save(note);
+        return new CandidateNoteDto(saved.getId(), saved.getSubmissionId(), saved.getAuthorEmail(), saved.getContent(), saved.getCreatedAt());
+    }
+
     // ── Helpers ──
 
     private Submission findOrThrow(UUID id) {
@@ -117,11 +145,17 @@ public class SubmissionService {
     }
 
     private SubmissionResponse toResponse(Submission s) {
-        // NEVER include raw PII in this response
+        String name = null;
+        String email = null;
+        if (s.getProcessingStatus() == com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
+            name = s.getRawCandidateName();
+            email = s.getRawCandidateEmail();
+        }
         return new SubmissionResponse(
                 s.getId(), s.getCampaignId(), s.getCandidateLabel(),
                 s.getReceivedAt(), s.getProcessingStatus().name(),
-                s.getAttachmentCount(), s.getCurrentProfileId(), s.getCurrentScoreId()
+                s.getAttachmentCount(), s.getCurrentProfileId(), s.getCurrentScoreId(),
+                name, email
         );
     }
 
@@ -176,12 +210,12 @@ public class SubmissionService {
     private List<String> fromJsonList(String json) {
         if (json == null || json.isBlank()) return List.of();
         try { return objectMapper.readValue(json, List.class); }
-        catch (JsonProcessingException e) { return List.of(); }
+        catch (Exception e) { return List.of(); }
     }
 
     private Object fromJsonObject(String json) {
         if (json == null || json.isBlank()) return Map.of();
         try { return objectMapper.readValue(json, Map.class); }
-        catch (JsonProcessingException e) { return Map.of(); }
+        catch (Exception e) { return Map.of(); }
     }
 }

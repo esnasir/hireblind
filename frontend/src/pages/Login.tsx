@@ -24,7 +24,7 @@ export default function Login() {
       const res = await api.post('/auth/login', { email, password });
       const { accessToken, user } = res.data;
       setAuth(accessToken, user);
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -85,13 +85,6 @@ export default function Login() {
           </form>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4 pt-4 text-center">
-          <div className="text-sm text-slate-500">
-            Demo Credentials:
-            <br />
-            <span className="font-mono text-slate-700">admin@hireblind.com / admin123</span>
-            <br />
-            <span className="font-mono text-slate-700">recruiter@hireblind.com / recruiter123</span>
-          </div>
         </CardFooter>
       </Card>
     </div>

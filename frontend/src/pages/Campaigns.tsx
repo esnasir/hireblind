@@ -15,7 +15,7 @@ export default function Campaigns() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newCampaign, setNewCampaign] = useState({ title: '', description: '' });
+  const [newCampaign, setNewCampaign] = useState({ title: '', description: '', totalVacancies: 1, bufferMultiplier: 2 });
   const [skills, setSkills] = useState<string[]>([]);
   const [skillInput, setSkillInput] = useState('');
 
@@ -29,7 +29,7 @@ export default function Campaigns() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
       setIsDialogOpen(false);
-      setNewCampaign({ title: '', description: '' });
+      setNewCampaign({ title: '', description: '', totalVacancies: 1, bufferMultiplier: 2 });
       setSkills([]);
       setSkillInput('');
     },
@@ -42,6 +42,8 @@ export default function Campaigns() {
       description: newCampaign.description,
       requiredSkills: skills,
       screeningRules: {}, // default
+      totalVacancies: newCampaign.totalVacancies,
+      bufferMultiplier: newCampaign.bufferMultiplier,
     });
   };
 
@@ -131,6 +133,26 @@ export default function Campaigns() {
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px] resize-y leading-relaxed"
                       required
                     />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Total Vacancies</label>
+                      <Input 
+                        type="number"
+                        min="1"
+                        value={newCampaign.totalVacancies}
+                        onChange={(e) => setNewCampaign({...newCampaign, totalVacancies: parseInt(e.target.value) || 1})}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Buffer Multiplier</label>
+                      <Input 
+                        type="number"
+                        min="1"
+                        value={newCampaign.bufferMultiplier}
+                        onChange={(e) => setNewCampaign({...newCampaign, bufferMultiplier: parseInt(e.target.value) || 2})}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">

@@ -41,7 +41,7 @@ class CampaignServiceTest {
         UUID ownerId = UUID.randomUUID();
         var request = new CampaignCreateRequest(
                 "Test Campaign", "Description",
-                List.of("Java", "Spring"), null
+                List.of("Java", "Spring"), null, 1, 2
         );
 
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> {

@@ -35,4 +35,9 @@ public class IncomingMessage {
     private String status; // PENDING, PROCESSED, FAILED
     private OffsetDateTime createdAt;
 
+    private String resumeFilePath;
+    private String resumeOriginalFilename;
+    private Long resumeFileSizeBytes;
+    private String resumeContentType;
+
 }

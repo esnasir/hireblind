@@ -10,5 +10,7 @@ public record CampaignUpdateRequest(
         String title,
         String description,
         List<String> requiredSkills,
-        Map<String, Object> screeningRules
+        Map<String, Object> screeningRules,
+        Integer totalVacancies,
+        Integer bufferMultiplier
 ) {}

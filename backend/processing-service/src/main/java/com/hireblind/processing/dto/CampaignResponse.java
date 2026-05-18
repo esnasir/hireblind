@@ -12,4 +12,6 @@ public class CampaignResponse {
     private String description;
     private List<String> requiredSkills;
     private Map<String, Object> screeningRules;
+    private int totalVacancies = 1;
+    private int bufferMultiplier = 2;
 }

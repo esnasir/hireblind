@@ -14,5 +14,7 @@ public record SubmissionResponse(
         String processingStatus,
         int attachmentCount,
         UUID currentProfileId,
-        UUID currentScoreId
+        UUID currentScoreId,
+        String candidateName,
+        String candidateEmail
 ) {}

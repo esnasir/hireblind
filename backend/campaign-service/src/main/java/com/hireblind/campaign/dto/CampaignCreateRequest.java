@@ -15,5 +15,9 @@ public record CampaignCreateRequest(
 
         List<String> requiredSkills,
 
-        Map<String, Object> screeningRules
+        Map<String, Object> screeningRules,
+        
+        Integer totalVacancies,
+        
+        Integer bufferMultiplier
 ) {}

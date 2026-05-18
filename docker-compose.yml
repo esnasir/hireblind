@@ -29,6 +29,10 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8081
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      SEED_RECRUITER_EMAIL: ${SEED_RECRUITER_EMAIL}
+      SEED_RECRUITER_PASSWORD: ${SEED_RECRUITER_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,6 +59,8 @@ services:
     container_name: hireblind-processing
     ports:
       - "8083:8083"
+    volumes:
+      - resume_storage:/app/resumes
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_processing
       SPRING_DATASOURCE_USERNAME: hireblind
@@ -111,3 +117,4 @@ services:
 
 volumes:
   pgdata:
+  resume_storage:

@@ -5,6 +5,7 @@ import com.hireblind.iam.entity.User;
 import com.hireblind.iam.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -27,6 +28,18 @@ public class UserSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${seed.admin.email:admin@hireblind.local}")
+    private String adminEmail;
+
+    @Value("${seed.admin.password:}")
+    private String adminPassword;
+
+    @Value("${seed.recruiter.email:recruiter@hireblind.local}")
+    private String recruiterEmail;
+
+    @Value("${seed.recruiter.password:}")
+    private String recruiterPassword;
+
     public UserSeeder(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -34,8 +47,17 @@ public class UserSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedUser(ADMIN_USER_ID, "admin@hireblind.com", "admin123", "System Admin", Role.ADMIN);
-        seedUser(RECRUITER_USER_ID, "recruiter@hireblind.com", "recruiter123", "Jane Recruiter", Role.RECRUITER);
+        if (!adminPassword.isBlank()) {
+            seedUser(ADMIN_USER_ID, adminEmail, adminPassword, "System Admin", Role.ADMIN);
+        } else {
+            log.warn("Seed admin password is empty, skipping admin seed.");
+        }
+        
+        if (!recruiterPassword.isBlank()) {
+            seedUser(RECRUITER_USER_ID, recruiterEmail, recruiterPassword, "Jane Recruiter", Role.RECRUITER);
+        } else {
+            log.warn("Seed recruiter password is empty, skipping recruiter seed.");
+        }
     }
 
     private void seedUser(UUID id, String email, String rawPassword, String fullName, Role role) {

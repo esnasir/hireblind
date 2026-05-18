@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Campaigns from './pages/Campaigns';
@@ -21,7 +22,7 @@ const queryClient = new QueryClient({
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
-  return user?.role === 'ADMIN' ? <>{children}</> : <Navigate to="/" replace />;
+  return user?.role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
@@ -29,20 +30,23 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           
-          <Route path="/" element={<AppLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="campaigns" element={<Campaigns />} />
-            <Route path="campaigns/:id" element={<CampaignDetail />} />
-            <Route path="candidates/:id" element={<CandidateDetail />} />
+          <Route element={<AppLayout />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/campaigns" element={<Campaigns />} />
+            <Route path="/campaigns/:id" element={<CampaignDetail />} />
+            <Route path="/candidates/:id" element={<CandidateDetail />} />
             
-            <Route path="audit" element={
+            <Route path="/audit" element={
               <AdminRoute>
                 <AuditLog />
               </AdminRoute>
             } />
           </Route>
+          
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
