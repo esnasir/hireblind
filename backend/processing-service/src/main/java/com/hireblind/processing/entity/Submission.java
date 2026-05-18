@@ -106,6 +106,25 @@ public class Submission {
     @JdbcTypeCode(SqlTypes.JSON)
     private String extractedUrlsJson;
 
+    @Column(name = "is_flagged_suspicious", nullable = false)
+    private boolean flaggedSuspicious = false;
+
+    @Column(name = "flag_reason")
+    private String flagReason;
+
+    @Column(name = "flagged_at")
+    private Instant flaggedAt;
+
+    @Column(name = "sanitized_content_removed", nullable = false)
+    private boolean sanitizedContentRemoved = false;
+
+    @Column(name = "sanitization_log")
+    private String sanitizationLog;
+
+    @Column(name = "experience_gaps_json", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private String experienceGapsJson;
+
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = Instant.now();
@@ -201,4 +220,22 @@ public class Submission {
 
     public String getExtractedUrlsJson() { return extractedUrlsJson; }
     public void setExtractedUrlsJson(String extractedUrlsJson) { this.extractedUrlsJson = extractedUrlsJson; }
+
+    public boolean isFlaggedSuspicious() { return flaggedSuspicious; }
+    public void setFlaggedSuspicious(boolean flaggedSuspicious) { this.flaggedSuspicious = flaggedSuspicious; }
+
+    public String getFlagReason() { return flagReason; }
+    public void setFlagReason(String flagReason) { this.flagReason = flagReason; }
+
+    public Instant getFlaggedAt() { return flaggedAt; }
+    public void setFlaggedAt(Instant flaggedAt) { this.flaggedAt = flaggedAt; }
+
+    public boolean isSanitizedContentRemoved() { return sanitizedContentRemoved; }
+    public void setSanitizedContentRemoved(boolean sanitizedContentRemoved) { this.sanitizedContentRemoved = sanitizedContentRemoved; }
+
+    public String getSanitizationLog() { return sanitizationLog; }
+    public void setSanitizationLog(String sanitizationLog) { this.sanitizationLog = sanitizationLog; }
+
+    public String getExperienceGapsJson() { return experienceGapsJson; }
+    public void setExperienceGapsJson(String experienceGapsJson) { this.experienceGapsJson = experienceGapsJson; }
 }

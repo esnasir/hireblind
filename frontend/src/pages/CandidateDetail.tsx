@@ -107,6 +107,34 @@ export default function CandidateDetail() {
 
   return (
     <div className="space-y-6">
+      {/* Suspicious Candidate Warning Banner */}
+      {submission.flaggedSuspicious && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 shadow-xs flex items-start gap-4 animate-fade-in">
+          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center border border-amber-200 shrink-0">
+            <ShieldAlert className="h-5 w-5 text-amber-700 animate-pulse" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-amber-900">Security Alert: Suspicious Submission Activity</h3>
+            <p className="text-sm text-amber-700 leading-relaxed">
+              This candidate's submission has been flagged by the pre-processing sanitization and output validation layers.
+            </p>
+            {user?.role === 'ADMIN' && submission.flagReason && (
+              <div className="mt-3 bg-white/80 border border-amber-200 rounded-lg p-3">
+                <span className="block text-xs font-bold text-amber-800 uppercase tracking-wider mb-1">Triggered Security Rules</span>
+                <span className="font-mono text-xs text-amber-950 font-medium block leading-normal break-all">
+                  {submission.flagReason}
+                </span>
+              </div>
+            )}
+            {user?.role !== 'ADMIN' && (
+              <p className="text-xs text-amber-600 italic mt-1.5">
+                Contact a platform administrator to inspect detailed threat parameters.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <Link to={`/campaigns/${submission.campaignId}`} className="text-sm font-medium text-slate-500 hover:text-slate-900 inline-flex items-center mb-4 transition-colors">
@@ -469,14 +497,16 @@ export default function CandidateDetail() {
                     </div>
                   </div>
 
-                  {/* D.3 missing skills card experienceGaps category */}
-                  {score?.experienceGaps && score.experienceGaps.length > 0 && (
+                  {/* Experience Gaps category */}
+                  {((submission?.experienceGaps && submission.experienceGaps.length > 0) || (score?.experienceGaps && score.experienceGaps.length > 0)) && (
                     <div>
                       <h4 className="text-sm font-medium text-slate-900 mb-3 flex items-center">
                         <ShieldAlert className="h-4 w-4 mr-1 text-amber-500" /> Experience Gaps
                       </h4>
                       <div className="flex flex-wrap gap-1.5">
-                        {score.experienceGaps.map((gap: string) => (
+                        {((submission?.experienceGaps && submission.experienceGaps.length > 0) 
+                          ? submission.experienceGaps 
+                          : score.experienceGaps).map((gap: string) => (
                           <Badge key={gap} variant="outline" className="text-amber-700 bg-amber-50 border-amber-200 font-normal">
                             {gap}
                           </Badge>

@@ -51,15 +51,25 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public List<SubmissionResponse> listByCampaign(UUID campaignId) {
+        return listByCampaign(campaignId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> listByCampaign(UUID campaignId, boolean isAdmin) {
         List<Submission> submissions = (campaignId != null)
                 ? submissionRepository.findByCampaignIdOrderByMatchScoreDesc(campaignId)
                 : submissionRepository.findAll();
-        return submissions.stream().map(this::toResponse).toList();
+        return submissions.stream().map(s -> toResponse(s, isAdmin)).toList();
     }
 
     @Transactional(readOnly = true)
     public SubmissionResponse getById(UUID id) {
-        return toResponse(findOrThrow(id));
+        return getById(id, false);
+    }
+
+    @Transactional(readOnly = true)
+    public SubmissionResponse getById(UUID id, boolean isAdmin) {
+        return toResponse(findOrThrow(id), isAdmin);
     }
 
     @Transactional(readOnly = true)
@@ -156,8 +166,13 @@ public class SubmissionService {
 
     @Transactional(readOnly = true)
     public List<SubmissionResponse> getUnassignedSubmissions() {
+        return getUnassignedSubmissions(false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getUnassignedSubmissions(boolean isAdmin) {
         return submissionRepository.findByCampaignIdIsNull().stream()
-                .map(this::toResponse).toList();
+                .map(s -> toResponse(s, isAdmin)).toList();
     }
 
     @Transactional(readOnly = true)
@@ -187,6 +202,10 @@ public class SubmissionService {
     }
 
     private SubmissionResponse toResponse(Submission s) {
+        return toResponse(s, false);
+    }
+
+    private SubmissionResponse toResponse(Submission s, boolean isAdmin) {
         String name = null;
         String email = null;
         String phone = null;
@@ -210,6 +229,10 @@ public class SubmissionService {
                     .map(com.hireblind.processing.entity.ScoringResult::getScoreValue)
                     .orElse(null);
         }
+
+        String reason = isAdmin ? s.getFlagReason() : null;
+        List<String> experienceGaps = fromJsonList(s.getExperienceGapsJson());
+
         return new SubmissionResponse(
                 s.getId(), s.getCampaignId(), s.getCandidateLabel(),
                 s.getReceivedAt(), s.getProcessingStatus().name(),
@@ -219,7 +242,11 @@ public class SubmissionService {
                 s.getPipelineStage(), s.getShortlistTier(), s.getShortlistPosition(),
                 phone, linkedinUrl, s.getYearsOfExperience(),
                 s.getCurrentJobRole(), s.getCurrentCompany(), s.getState(),
-                extractedUrlsJson
+                extractedUrlsJson,
+                s.isFlaggedSuspicious(),
+                reason,
+                s.isSanitizedContentRemoved(),
+                experienceGaps
         );
     }
 

@@ -7,6 +7,8 @@ import com.hireblind.processing.dto.LlmResponse;
 import com.hireblind.processing.entity.*;
 import com.hireblind.processing.repository.*;
 import com.hireblind.processing.security.JwtUtil;
+import com.hireblind.processing.security.ResumeTextSanitizer;
+import com.hireblind.processing.security.LlmResponseValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,6 +41,9 @@ public class SubmissionProcessingService {
     private final LlmClientService llmClientService;
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
+    private final ResumeTextSanitizer resumeTextSanitizer;
+    private final LlmResponseValidator llmResponseValidator;
+    private final AuditClient auditClient;
 
     @Value("${campaign.service.url}")
     private String campaignServiceUrl;
@@ -87,30 +94,55 @@ public class SubmissionProcessingService {
             log.error("Failed to perform campaign matching for message: {}, defaulting to unassigned: {}", message.getId(), e.getMessage());
         }
 
-        // 2. Initialize Submission and Attempt in their own transaction
-        SubmissionAndAttempt init = initiateSubmission(message, matchedCampaignId);
+        // 2. Pre-process text sanitization
+        ResumeTextSanitizer.SanitizationResult sanitization = resumeTextSanitizer.sanitize(message.getExtractedText());
+
+        // 3. Initialize Submission and Attempt in their own transaction
+        SubmissionAndAttempt init = initiateSubmission(message, matchedCampaignId, sanitization);
         Submission submission = init.submission();
         ProcessingAttempt attempt = init.attempt();
 
         try {
             if (matchedCampaignId != null) {
-                // 3. Fetch Campaign Details (Outside DB transaction)
+                // 4. Fetch Campaign Details (Outside DB transaction)
                 CampaignResponse campaign = fetchCampaignDetails(matchedCampaignId);
 
-                // 4. Call LLM (Outside DB transaction)
-                LlmResponse llmResult = llmClientService.processCandidate(
-                        message.getRawBody(),
-                        message.getExtractedText(),
-                        campaign.getDescription(),
-                        String.join(", ", campaign.getRequiredSkills()),
-                        toJson(campaign.getScreeningRules())
+                // 5. Call LLM with Sanitized text
+                LlmResponse llmResult = llmClientService.parseResume(
+                        sanitization.sanitizedText(),
+                        campaign
                 );
 
-                // 5. Persist Successful Result in its own transaction
-                persistSuccessfulResult(message, submission, attempt, llmResult);
+                // 6. Validate LLM Response
+                LlmResponseValidator.ValidationResult validation = llmResponseValidator.validate(llmResult, campaign.getRequiredSkills());
+
+                // 7. Persist Successful Result in its own transaction
+                persistSuccessfulResult(message, submission, attempt, llmResult, sanitization, validation);
+
+                // 8. Secure Audit Flagging Event
+                boolean isSuspicious = sanitization.contentRemoved() || validation.suspicious();
+                if (isSuspicious) {
+                    List<String> allTriggers = new ArrayList<>();
+                    allTriggers.addAll(sanitization.triggeredRules());
+                    allTriggers.addAll(validation.anomalies());
+
+                    Map<String, Object> auditMetadata = Map.of(
+                            "anomalies", allTriggers,
+                            "sanitizerRemovedContent", sanitization.contentRemoved(),
+                            "originalHash", sanitization.originalHash(),
+                            "sanitizedHash", sanitization.sanitizedHash()
+                    );
+                    auditClient.logEvent(
+                            "SUBMISSION_FLAGGED_SUSPICIOUS",
+                            "processing-service",
+                            matchedCampaignId,
+                            submission.getId(),
+                            auditMetadata
+                    );
+                }
             } else {
-                // 3. Save as unassigned, mark processing completed with no profile/score (since there's no campaign to score against)
-                persistUnassignedResult(message, submission, attempt);
+                // 3. Save as unassigned, mark processing completed with no profile/score
+                persistUnassignedResult(message, submission, attempt, sanitization);
             }
 
         } catch (Exception e) {
@@ -137,7 +169,12 @@ public class SubmissionProcessingService {
     }
 
     @Transactional
-    public SubmissionAndAttempt initiateSubmission(IncomingMessage message, UUID campaignId) {
+    public SubmissionAndAttempt initiateSubmission(IncomingMessage message, UUID campaignId, ResumeTextSanitizer.SanitizationResult sanitization) {
+        // Set hashes on Ingestion Message
+        message.setRawExtractedTextHash(sanitization.originalHash());
+        message.setSanitizedTextHash(sanitization.sanitizedHash());
+        incomingMessageRepository.save(message);
+
         // 1. Create Submission
         Submission submission = new Submission();
         submission.setCampaignId(campaignId);
@@ -176,7 +213,14 @@ public class SubmissionProcessingService {
     }
 
     @Transactional
-    public void persistSuccessfulResult(IncomingMessage message, Submission submission, ProcessingAttempt attempt, LlmResponse llmResult) {
+    public void persistSuccessfulResult(
+            IncomingMessage message,
+            Submission submission,
+            ProcessingAttempt attempt,
+            LlmResponse llmResult,
+            ResumeTextSanitizer.SanitizationResult sanitization,
+            LlmResponseValidator.ValidationResult validation
+    ) {
         // 1. Create Anonymized Profile
         AnonymizedProfile profile = new AnonymizedProfile();
         profile.setSubmissionId(submission.getId());
@@ -227,6 +271,23 @@ public class SubmissionProcessingService {
         if (llmResult.getExtractedUrls() != null && !llmResult.getExtractedUrls().isEmpty()) {
             submission.setExtractedUrlsJson(toJson(llmResult.getExtractedUrls()));
         }
+
+        // Persist Security Columns
+        boolean isSuspicious = sanitization.contentRemoved() || validation.suspicious();
+        submission.setFlaggedSuspicious(isSuspicious);
+        if (isSuspicious) {
+            List<String> allTriggers = new ArrayList<>();
+            allTriggers.addAll(sanitization.triggeredRules());
+            allTriggers.addAll(validation.anomalies());
+            submission.setFlagReason(String.join(",", allTriggers));
+            submission.setFlaggedAt(Instant.now());
+        }
+        submission.setSanitizedContentRemoved(sanitization.contentRemoved());
+        submission.setSanitizationLog(String.join(",", sanitization.triggeredRules()));
+        
+        // Save experience gaps list as JSON array
+        submission.setExperienceGapsJson(toJson(llmResult.getExperienceGaps()));
+
         submission.setCurrentProfileId(profile.getId());
         submission.setCurrentScoreId(score.getId());
         submission.setProcessingStatus(ProcessingStatus.COMPLETED);
@@ -287,8 +348,15 @@ public class SubmissionProcessingService {
     }
 
     @Transactional
-    public void persistUnassignedResult(IncomingMessage message, Submission submission, ProcessingAttempt attempt) {
-        // Update Submission
+    public void persistUnassignedResult(
+            IncomingMessage message,
+            Submission submission,
+            ProcessingAttempt attempt,
+            ResumeTextSanitizer.SanitizationResult sanitization
+    ) {
+        // Set sanitization fields on unassigned submission
+        submission.setSanitizedContentRemoved(sanitization.contentRemoved());
+        submission.setSanitizationLog(String.join(",", sanitization.triggeredRules()));
         submission.setProcessingStatus(ProcessingStatus.COMPLETED);
         submissionRepository.save(submission);
 

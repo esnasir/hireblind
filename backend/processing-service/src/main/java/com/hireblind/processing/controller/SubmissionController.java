@@ -35,15 +35,22 @@ public class SubmissionController {
 
     @GetMapping
     public ResponseEntity<List<SubmissionResponse>> list(
-            @RequestParam(required = false) UUID campaignId) {
+            @RequestParam(required = false) UUID campaignId,
+            Authentication auth) {
         log.info("GET /submissions (campaignId: {})", campaignId);
-        return ResponseEntity.ok(submissionService.listByCampaign(campaignId));
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return ResponseEntity.ok(submissionService.listByCampaign(campaignId, isAdmin));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<SubmissionResponse> getById(@PathVariable UUID id) {
+    public ResponseEntity<SubmissionResponse> getById(
+            @PathVariable UUID id,
+            Authentication auth) {
         log.info("GET /submissions/{}", id);
-        return ResponseEntity.ok(submissionService.getById(id));
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return ResponseEntity.ok(submissionService.getById(id, isAdmin));
     }
 
     @GetMapping("/{id}/profile")
@@ -71,9 +78,11 @@ public class SubmissionController {
 
     @GetMapping("/unassigned")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<SubmissionResponse>> getUnassigned() {
+    public ResponseEntity<List<SubmissionResponse>> getUnassigned(Authentication auth) {
         log.info("GET /submissions/unassigned by ADMIN");
-        return ResponseEntity.ok(submissionService.getUnassignedSubmissions());
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        return ResponseEntity.ok(submissionService.getUnassignedSubmissions(isAdmin));
     }
 
     @GetMapping("/stats")

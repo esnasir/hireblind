@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, User, FileText, ChevronRight, CheckCircle, FolderArchive, XCircle, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, User, FileText, ChevronRight, CheckCircle, FolderArchive, XCircle, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 
 export default function CampaignDetail() {
@@ -269,6 +269,12 @@ export default function CampaignDetail() {
                           {getInitials(sub.candidateLabel)}
                         </div>
                         <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                        {sub.flaggedSuspicious && (
+                          <AlertTriangle 
+                            className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
+                            title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
+                          />
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -388,6 +394,12 @@ export default function CampaignDetail() {
                             {getInitials(sub.candidateLabel)}
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                          {sub.flaggedSuspicious && (
+                            <AlertTriangle 
+                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
+                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -443,6 +455,12 @@ export default function CampaignDetail() {
                             {getInitials(sub.candidateLabel)}
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                          {sub.flaggedSuspicious && (
+                            <AlertTriangle 
+                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
+                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -508,6 +526,12 @@ export default function CampaignDetail() {
                             {getInitials(sub.candidateLabel)}
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
+                          {sub.flaggedSuspicious && (
+                            <AlertTriangle 
+                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
+                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
+                            />
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-600 text-sm font-medium">{sub.rejectionReason}</TableCell>

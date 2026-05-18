@@ -3,6 +3,7 @@ package com.hireblind.processing.entity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -40,5 +41,11 @@ public class IncomingMessage {
     private String resumeOriginalFilename;
     private Long resumeFileSizeBytes;
     private String resumeContentType;
+
+    @Column(name = "raw_extracted_text_hash")
+    private String rawExtractedTextHash;
+
+    @Column(name = "sanitized_text_hash")
+    private String sanitizedTextHash;
 
 }
