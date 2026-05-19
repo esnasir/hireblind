@@ -34,6 +34,8 @@ management:
       show-details: always
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [correlationId=%X{correlationId}] - %msg%n"
   level:
     com.hireblind.iam: DEBUG
     org.springframework.security: INFO

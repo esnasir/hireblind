@@ -33,17 +33,21 @@ public class AuditClient {
 
     public void logEvent(String actionType, String actorId, UUID campaignId, UUID submissionId, Map<String, Object> metadata) {
         try {
+            String correlationId = org.slf4j.MDC.get("correlationId");
             String metadataJson = objectMapper.writeValueAsString(metadata);
-            Map<String, Object> event = Map.of(
+            java.util.Map<String, Object> event = new java.util.HashMap<>(java.util.Map.of(
                     "actorType", "SYSTEM",
                     "actorId", actorId,
                     "actionType", actionType,
                     "entityType", "SUBMISSION",
                     "entityId", submissionId.toString(),
                     "metadataJson", metadataJson
-            );
+            ));
+            if (correlationId != null) {
+                event.put("correlationId", correlationId);
+            }
 
-            String token = jwtUtil.generateToken("processing-service", "ADMIN");
+            String token = jwtUtil.generateToken("processing-service", "INTERNAL", "SERVICE");
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

@@ -42,6 +42,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             Claims claims = jwtUtil.validateToken(authHeader.substring(7));
             String userId = claims.getSubject();
             String role = claims.get("role", String.class);
+            String type = claims.get("type", String.class);
+
+            if ("SERVICE".equalsIgnoreCase(type)) {
+                String uri = request.getRequestURI();
+                String method = request.getMethod();
+                boolean isAllowed = "GET".equalsIgnoreCase(method) && 
+                        (uri.matches("/campaigns/[a-fA-F0-9\\-]+") || uri.matches("/api/campaigns/[a-fA-F0-9\\-]+"));
+                if (!isAllowed) {
+                    log.warn("SERVICE token rejected on user-facing endpoint: {} {}", method, uri);
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+            }
+
             String authority = role != null && role.startsWith("ROLE_") ? role : "ROLE_" + role;
 
             var authToken = new UsernamePasswordAuthenticationToken(

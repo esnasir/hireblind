@@ -3,6 +3,7 @@ package com.hireblind.processing.service;
 import com.hireblind.processing.dto.*;
 import com.hireblind.processing.entity.*;
 import com.hireblind.processing.repository.*;
+import com.hireblind.processing.security.JwtUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,21 +36,25 @@ public class SubmissionService {
     private final CandidateNoteRepository noteRepository;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final JwtUtil jwtUtil;
     private final String auditServiceUrl;
 
     public record ResumeDownload(Resource resource, HttpHeaders headers, MediaType mediaType) {}
 
+    @org.springframework.beans.factory.annotation.Autowired
     public SubmissionService(SubmissionRepository submissionRepository,
                              AnonymizedProfileRepository profileRepository,
                              ScoringResultRepository scoringRepository,
                              CandidateNoteRepository noteRepository,
                              ObjectMapper objectMapper,
+                             JwtUtil jwtUtil,
                              @Value("${audit.service.url}") String auditServiceUrl) {
         this.submissionRepository = submissionRepository;
         this.profileRepository = profileRepository;
         this.scoringRepository = scoringRepository;
         this.noteRepository = noteRepository;
         this.objectMapper = objectMapper;
+        this.jwtUtil = jwtUtil;
         this.restTemplate = new RestTemplate();
         this.auditServiceUrl = auditServiceUrl;
     }
@@ -59,6 +64,7 @@ public class SubmissionService {
                       ScoringResultRepository scoringRepository,
                       CandidateNoteRepository noteRepository,
                       ObjectMapper objectMapper,
+                      JwtUtil jwtUtil,
                       String auditServiceUrl,
                       RestTemplate restTemplate) {
         this.submissionRepository = submissionRepository;
@@ -66,6 +72,7 @@ public class SubmissionService {
         this.scoringRepository = scoringRepository;
         this.noteRepository = noteRepository;
         this.objectMapper = objectMapper;
+        this.jwtUtil = jwtUtil;
         this.restTemplate = restTemplate;
         this.auditServiceUrl = auditServiceUrl;
     }
@@ -116,7 +123,7 @@ public class SubmissionService {
      * Reveal the identity of a candidate. ADMIN-only action.
      * Marks status as REVEALED and emits an audit event.
      */
-    public RevealResponse reveal(UUID submissionId, String actorUserId, String authToken) {
+    public RevealResponse reveal(UUID submissionId, String actorUserId, String ignoredAuthToken) {
         Submission sub = findOrThrow(submissionId);
 
         if (sub.getProcessingStatus() == ProcessingStatus.REVEALED) {
@@ -128,14 +135,23 @@ public class SubmissionService {
         }
 
         // Emit audit event
-        emitAuditEvent(actorUserId, "IDENTITY_REVEALED", "SUBMISSION", submissionId.toString(), authToken);
+        emitAuditEvent(actorUserId, "IDENTITY_REVEALED", "SUBMISSION", submissionId.toString());
 
         return new RevealResponse(sub.getRawCandidateName(), sub.getRawCandidateEmail());
     }
 
     @Transactional(readOnly = true)
-    public Optional<ResumeDownload> downloadResume(UUID submissionId, String actorUserId, String authToken) {
+    public Optional<ResumeDownload> downloadResume(UUID submissionId, String actorUserId, String ignoredAuthToken) {
         Submission submission = findOrThrow(submissionId);
+
+        org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = auth != null && auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        
+        if (!isAdmin) {
+            throw new org.springframework.security.access.AccessDeniedException("Resume download is restricted to ADMIN role only");
+        }
 
         if (submission.getProcessingStatus() != ProcessingStatus.REVEALED) {
             throw new org.springframework.security.access.AccessDeniedException("Identity must be revealed before resume download");
@@ -150,7 +166,7 @@ public class SubmissionService {
             return Optional.empty();
         }
 
-        emitAuditEvent(actorUserId, "RESUME_DOWNLOADED", "SUBMISSION", submissionId.toString(), authToken);
+        emitAuditEvent(actorUserId, "RESUME_DOWNLOADED", "SUBMISSION", submissionId.toString());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentDispositionFormData("attachment", safeFilename(submission.getResumeOriginalFilename()));
@@ -255,13 +271,29 @@ public class SubmissionService {
         return toResponse(s, false);
     }
 
-    private SubmissionResponse toResponse(Submission s, boolean isAdmin) {
+    private SubmissionResponse toResponse(Submission s, boolean ignoredIsAdmin) {
+        org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        
+        boolean isSystemInternal = false;
+        boolean isAdmin = false;
+        
+        if (auth != null) {
+            isSystemInternal = auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_INTERNAL".equals(a.getAuthority()));
+            isAdmin = auth.getAuthorities().stream()
+                    .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+        }
+
         String name = null;
         String email = null;
         String phone = null;
         String linkedinUrl = null;
         String extractedUrlsJson = null;
-        if (s.getProcessingStatus() == com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
+        
+        boolean showPii = isSystemInternal || (isAdmin && s.getProcessingStatus() == com.hireblind.processing.entity.ProcessingStatus.REVEALED);
+        
+        if (showPii) {
             name = s.getRawCandidateName();
             email = s.getRawCandidateEmail();
             phone = s.getPhone();
@@ -273,6 +305,7 @@ public class SubmissionService {
                 extractedUrlsJson = rawJson.replaceAll("\"url\"\\s*:\\s*\"[^\"]+\"", "\"url\":\"[REDACTED]\"");
             }
         }
+
         java.math.BigDecimal matchScore = null;
         if (s.getCurrentScoreId() != null) {
             matchScore = scoringRepository.findById(s.getCurrentScoreId())
@@ -280,7 +313,8 @@ public class SubmissionService {
                     .orElse(null);
         }
 
-        String reason = isAdmin ? s.getFlagReason() : null;
+        boolean showFlagReason = isSystemInternal || isAdmin;
+        String reason = showFlagReason ? s.getFlagReason() : null;
         List<String> experienceGaps = fromJsonList(s.getExperienceGapsJson());
 
         return new SubmissionResponse(
@@ -323,26 +357,31 @@ public class SubmissionService {
     }
 
     private void emitAuditEvent(String actorId, String actionType, String entityType,
-                                String entityId, String authToken) {
+                                String entityId) {
         try {
-            Map<String, Object> event = Map.of(
+            String correlationId = org.slf4j.MDC.get("correlationId");
+            java.util.Map<String, Object> event = new java.util.HashMap<>(java.util.Map.of(
                     "actorType", "USER",
                     "actorId", actorId,
                     "actionType", actionType,
                     "entityType", entityType,
                     "entityId", entityId,
                     "metadataJson", "{}"
-            );
+            ));
+            if (correlationId != null) {
+                event.put("correlationId", correlationId);
+            }
+
+            String token = jwtUtil.generateToken("processing-service", "INTERNAL", "SERVICE");
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("Authorization", "Bearer " + authToken);
+            headers.set("Authorization", "Bearer " + token);
 
             HttpEntity<Map<String, Object>> request = new HttpEntity<>(event, headers);
             restTemplate.postForEntity(auditServiceUrl + "/audit/events", request, String.class);
             log.info("Audit event emitted: {} for entity: {}", actionType, entityId);
         } catch (Exception e) {
-            // Log but don't fail the reveal — audit is important but shouldn't block the action
             log.error("Failed to emit audit event: {}", e.getMessage());
         }
     }

@@ -49,13 +49,14 @@ public class IncomingMessageController {
                 .map(msg -> {
                     String senderEmail = isRecruiter ? maskEmail(msg.getSenderEmail()) : msg.getSenderEmail();
                     String rawBody = isRecruiter ? null : msg.getRawBody();
+                    String cleanFilename = sanitizeFilename(msg.getResumeOriginalFilename());
                     return new IncomingMessageResponse(
                             msg.getId(),
                             msg.getSubject() != null ? msg.getSubject() : "No Subject",
                             senderEmail,
                             msg.getReceivedAt(),
                             msg.getStatus(),
-                            msg.getResumeOriginalFilename(),
+                            cleanFilename,
                             msg.getResumeFileSizeBytes(),
                             rawBody
                     );
@@ -89,5 +90,10 @@ public class IncomingMessageController {
             return local + "***" + domain;
         }
         return local.charAt(0) + "***" + domain;
+    }
+
+    private String sanitizeFilename(String filename) {
+        if (filename == null) return null;
+        return filename.replaceAll("[/\\\\\\x00-\\x1F\\x7F-\\x9F]", "_");
     }
 }

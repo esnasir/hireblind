@@ -126,7 +126,10 @@ public class EmailIngestionService {
         }
 
         incomingMessageRepository.save(incomingMessage);
-        log.info("Saved incoming message from {} with ID {}", from, incomingMessage.getId());
+        String maskedFrom = from != null && from.contains("@") 
+                ? from.substring(0, Math.min(3, from.indexOf("@"))) + "***" + from.substring(from.indexOf("@"))
+                : "[REDACTED]";
+        log.info("Saved incoming message from {} with ID {}", maskedFrom, incomingMessage.getId());
     }
 
     private void processMultipart(Part part, StringBuilder bodyBuilder, StringBuilder extractedTextBuilder, UUID incomingMessageId, com.hireblind.processing.dto.DocumentParseResult[] parseResult) throws MessagingException, IOException {

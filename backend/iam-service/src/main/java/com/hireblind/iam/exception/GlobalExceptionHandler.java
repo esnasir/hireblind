@@ -55,6 +55,7 @@ public class GlobalExceptionHandler {
         body.put("status", status.value());
         body.put("error", status.getReasonPhrase());
         body.put("message", message);
+        body.put("correlationId", org.slf4j.MDC.get("correlationId"));
         return ResponseEntity.status(status).body(body);
     }
 }

@@ -28,10 +28,15 @@ public class JwtUtil {
     }
 
     public String generateToken(String subject, String role) {
+        return generateToken(subject, role, "USER");
+    }
+
+    public String generateToken(String subject, String role, String type) {
         String normalizedRole = role != null && role.startsWith("ROLE_") ? role.substring(5) : role;
         return Jwts.builder()
                 .subject(subject)
                 .claim("role", normalizedRole)
+                .claim("type", type)
                 .issuedAt(new java.util.Date())
                 .expiration(new java.util.Date(System.currentTimeMillis() + 3600000)) // 1 hour
                 .signWith(signingKey)

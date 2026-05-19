@@ -41,6 +41,7 @@ class SubmissionServicePrivacyTest {
                 scoringRepository,
                 mock(CandidateNoteRepository.class),
                 new ObjectMapper(),
+                mock(com.hireblind.processing.security.JwtUtil.class),
                 "http://audit-service",
                 restTemplate
         );
@@ -66,49 +67,76 @@ class SubmissionServicePrivacyTest {
 
     @Test
     void revealedSubmissionResponseCanIncludeDirectPii() {
-        UUID submissionId = UUID.randomUUID();
-        Submission submission = baseSubmission(submissionId, ProcessingStatus.REVEALED);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "admin-user", null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))
+                )
+        );
+        try {
+            UUID submissionId = UUID.randomUUID();
+            Submission submission = baseSubmission(submissionId, ProcessingStatus.REVEALED);
 
-        when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+            when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
 
-        SubmissionResponse response = submissionService.getById(submissionId, true);
+            SubmissionResponse response = submissionService.getById(submissionId, true);
 
-        assertEquals("Alex Candidate", response.candidateName());
-        assertEquals("alex@example.com", response.candidateEmail());
-        assertEquals("555-0101", response.phone());
-        assertEquals("https://linkedin.com/in/alex-candidate", response.linkedinUrl());
-        assertTrue(response.extractedUrlsJson().contains("alex-candidate"));
-        assertEquals("INSTRUCTION_OVERRIDE", response.flagReason());
+            assertEquals("Alex Candidate", response.candidateName());
+            assertEquals("alex@example.com", response.candidateEmail());
+            assertEquals("555-0101", response.phone());
+            assertEquals("https://linkedin.com/in/alex-candidate", response.linkedinUrl());
+            assertTrue(response.extractedUrlsJson().contains("alex-candidate"));
+            assertEquals("INSTRUCTION_OVERRIDE", response.flagReason());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void resumeDownloadRequiresReveal() {
-        UUID submissionId = UUID.randomUUID();
-        Submission submission = baseSubmission(submissionId, ProcessingStatus.COMPLETED);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "admin-user", null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))
+                )
+        );
+        try {
+            UUID submissionId = UUID.randomUUID();
+            Submission submission = baseSubmission(submissionId, ProcessingStatus.COMPLETED);
 
-        when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+            when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
 
-        assertThrows(AccessDeniedException.class,
-                () -> submissionService.downloadResume(submissionId, "admin-user", "token"));
+            assertThrows(AccessDeniedException.class,
+                    () -> submissionService.downloadResume(submissionId, "admin-user", "token"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
     void revealedResumeDownloadAuditsAndSanitizesFilename() throws Exception {
-        UUID submissionId = UUID.randomUUID();
-        Submission submission = baseSubmission(submissionId, ProcessingStatus.REVEALED);
-        var tempFile = Files.createTempFile("hireblind-resume", ".pdf");
-        Files.writeString(tempFile, "resume");
-        submission.setResumeFilePath(tempFile.toString());
-        submission.setResumeOriginalFilename("Alex Candidate Resume.pdf");
-        submission.setResumeContentType("application/pdf");
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        "admin-user", null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))
+                )
+        );
+        try {
+            UUID submissionId = UUID.randomUUID();
+            Submission submission = baseSubmission(submissionId, ProcessingStatus.REVEALED);
+            var tempFile = Files.createTempFile("hireblind-resume", ".pdf");
+            Files.writeString(tempFile, "resume");
+            submission.setResumeFilePath(tempFile.toString());
+            submission.setResumeOriginalFilename("Alex Candidate Resume.pdf");
+            submission.setResumeContentType("application/pdf");
 
-        when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
+            when(submissionRepository.findById(submissionId)).thenReturn(Optional.of(submission));
 
-        var download = submissionService.downloadResume(submissionId, "admin-user", "token");
+            var download = submissionService.downloadResume(submissionId, "admin-user", "token");
 
-        assertTrue(download.isPresent());
-        assertTrue(download.get().headers().getFirst("Content-Disposition").contains("Alex_Candidate_Resume.pdf"));
-        verify(restTemplate).postForEntity(eq("http://audit-service/audit/events"), any(), eq(String.class));
+            assertTrue(download.isPresent());
+            assertTrue(download.get().headers().getFirst("Content-Disposition").contains("Alex_Candidate_Resume.pdf"));
+            verify(restTemplate).postForEntity(eq("http://audit-service/audit/events"), any(), eq(String.class));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     private Submission baseSubmission(UUID submissionId, ProcessingStatus status) {

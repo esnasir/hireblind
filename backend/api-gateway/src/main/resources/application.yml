@@ -67,6 +67,8 @@ management:
         include: health,info,gateway
 
 logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [correlationId=%X{correlationId}] - %msg%n"
   level:
     com.hireblind.gateway: DEBUG
     org.springframework.cloud.gateway: DEBUG
