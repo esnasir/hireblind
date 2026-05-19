@@ -47,10 +47,8 @@ public class IncomingMessageController {
         List<IncomingMessageResponse> responses = messages.stream()
                 .sorted((a, b) -> b.getReceivedAt().compareTo(a.getReceivedAt()))
                 .map(msg -> {
-                    String senderEmail = msg.getSenderEmail();
-                    if (isRecruiter && senderEmail != null && !senderEmail.equals("[SCRUBBED]")) {
-                        senderEmail = maskEmail(senderEmail);
-                    }
+                    String senderEmail = isRecruiter ? maskEmail(msg.getSenderEmail()) : msg.getSenderEmail();
+                    String rawBody = isRecruiter ? null : msg.getRawBody();
                     return new IncomingMessageResponse(
                             msg.getId(),
                             msg.getSubject() != null ? msg.getSubject() : "No Subject",
@@ -59,7 +57,7 @@ public class IncomingMessageController {
                             msg.getStatus(),
                             msg.getResumeOriginalFilename(),
                             msg.getResumeFileSizeBytes(),
-                            msg.getRawBody()
+                            rawBody
                     );
                 })
                 .collect(Collectors.toList());
@@ -82,7 +80,8 @@ public class IncomingMessageController {
     }
 
     private String maskEmail(String email) {
-        if (email == null || !email.contains("@")) return email;
+        if (email == null || email.isBlank() || "[SCRUBBED]".equals(email)) return email;
+        if (!email.contains("@")) return "[REDACTED]";
         int atIndex = email.indexOf("@");
         String local = email.substring(0, atIndex);
         String domain = email.substring(atIndex);

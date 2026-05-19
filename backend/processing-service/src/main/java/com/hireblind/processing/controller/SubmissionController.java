@@ -13,14 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import com.hireblind.processing.entity.Submission;
 
 @RestController
 @RequestMapping("/submissions")
@@ -99,29 +93,18 @@ public class SubmissionController {
 
     @GetMapping("/{id}/resume")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Resource> downloadResume(@PathVariable UUID id) {
-        Submission submission = submissionService.getSubmissionEntity(id);
-        
-        if (submission.getResumeFilePath() == null) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        // Only allow download if identity has been revealed
-        if (submission.getProcessingStatus() != com.hireblind.processing.entity.ProcessingStatus.REVEALED) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-        
-        Path path = Paths.get(submission.getResumeFilePath());
-        Resource resource = new FileSystemResource(path);
-        
-        return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION,
-                "attachment; filename=\"" + submission.getResumeOriginalFilename() + "\"")
-            .contentType(MediaType.parseMediaType(
-                submission.getResumeContentType() != null 
-                    ? submission.getResumeContentType() 
-                    : "application/octet-stream"))
-            .body(resource);
+    public ResponseEntity<Resource> downloadResume(
+            @PathVariable UUID id,
+            Authentication auth,
+            HttpServletRequest request) {
+        String userId = (String) auth.getPrincipal();
+        String token = request.getHeader("Authorization").substring(7);
+        return submissionService.downloadResume(id, userId, token)
+                .map(download -> ResponseEntity.ok()
+                        .headers(download.headers())
+                        .contentType(download.mediaType())
+                        .body(download.resource()))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
     }
 
     @GetMapping("/{id}/notes")

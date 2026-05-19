@@ -13,7 +13,7 @@ interface IncomingMessage {
   status: string;
   resumeOriginalFilename: string | null;
   resumeFileSizeBytes: number | null;
-  rawBody: string | null;
+  rawBodyVisibleToAdmin: string | null;
 }
 
 export default function InboxHub() {
@@ -259,9 +259,9 @@ export default function InboxHub() {
               <div className="p-6 space-y-3 flex-1">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Ingested Payload Content</h4>
                 <div className="bg-slate-900 text-slate-100 rounded-2xl p-4 font-mono text-xs overflow-auto max-h-[220px] leading-relaxed shadow-sm">
-                  {selectedMessage.rawBody && selectedMessage.rawBody !== '[SCRUBBED]' ? (
-                    <pre className="whitespace-pre-wrap">{selectedMessage.rawBody}</pre>
-                  ) : selectedMessage.rawBody === '[SCRUBBED]' ? (
+                  {selectedMessage.rawBodyVisibleToAdmin && selectedMessage.rawBodyVisibleToAdmin !== '[SCRUBBED]' ? (
+                    <pre className="whitespace-pre-wrap">{selectedMessage.rawBodyVisibleToAdmin}</pre>
+                  ) : selectedMessage.rawBodyVisibleToAdmin === '[SCRUBBED]' ? (
                     <div className="text-slate-400 flex items-center gap-2 py-4">
                       <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
                       <span>

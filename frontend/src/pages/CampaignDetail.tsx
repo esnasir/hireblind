@@ -270,10 +270,9 @@ export default function CampaignDetail() {
                         </div>
                         <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
                         {sub.flaggedSuspicious && (
-                          <AlertTriangle 
-                            className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
-                            title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
-                          />
+                          <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
+                            <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
+                          </span>
                         )}
                       </div>
                     </TableCell>
@@ -395,10 +394,9 @@ export default function CampaignDetail() {
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
                           {sub.flaggedSuspicious && (
-                            <AlertTriangle 
-                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
-                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
-                            />
+                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
+                            </span>
                           )}
                         </div>
                       </TableCell>
@@ -456,10 +454,9 @@ export default function CampaignDetail() {
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
                           {sub.flaggedSuspicious && (
-                            <AlertTriangle 
-                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
-                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
-                            />
+                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
+                            </span>
                           )}
                         </div>
                       </TableCell>
@@ -527,10 +524,9 @@ export default function CampaignDetail() {
                           </div>
                           <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
                           {sub.flaggedSuspicious && (
-                            <AlertTriangle 
-                              className="h-4 w-4 text-amber-500 ml-2 animate-pulse" 
-                              title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions." 
-                            />
+                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
+                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
+                            </span>
                           )}
                         </div>
                       </TableCell>

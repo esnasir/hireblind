@@ -6,14 +6,17 @@ import com.hireblind.processing.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -34,6 +37,8 @@ public class SubmissionService {
     private final RestTemplate restTemplate;
     private final String auditServiceUrl;
 
+    public record ResumeDownload(Resource resource, HttpHeaders headers, MediaType mediaType) {}
+
     public SubmissionService(SubmissionRepository submissionRepository,
                              AnonymizedProfileRepository profileRepository,
                              ScoringResultRepository scoringRepository,
@@ -46,6 +51,22 @@ public class SubmissionService {
         this.noteRepository = noteRepository;
         this.objectMapper = objectMapper;
         this.restTemplate = new RestTemplate();
+        this.auditServiceUrl = auditServiceUrl;
+    }
+
+    SubmissionService(SubmissionRepository submissionRepository,
+                      AnonymizedProfileRepository profileRepository,
+                      ScoringResultRepository scoringRepository,
+                      CandidateNoteRepository noteRepository,
+                      ObjectMapper objectMapper,
+                      String auditServiceUrl,
+                      RestTemplate restTemplate) {
+        this.submissionRepository = submissionRepository;
+        this.profileRepository = profileRepository;
+        this.scoringRepository = scoringRepository;
+        this.noteRepository = noteRepository;
+        this.objectMapper = objectMapper;
+        this.restTemplate = restTemplate;
         this.auditServiceUrl = auditServiceUrl;
     }
 
@@ -110,6 +131,35 @@ public class SubmissionService {
         emitAuditEvent(actorUserId, "IDENTITY_REVEALED", "SUBMISSION", submissionId.toString(), authToken);
 
         return new RevealResponse(sub.getRawCandidateName(), sub.getRawCandidateEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<ResumeDownload> downloadResume(UUID submissionId, String actorUserId, String authToken) {
+        Submission submission = findOrThrow(submissionId);
+
+        if (submission.getProcessingStatus() != ProcessingStatus.REVEALED) {
+            throw new org.springframework.security.access.AccessDeniedException("Identity must be revealed before resume download");
+        }
+
+        if (submission.getResumeFilePath() == null || submission.getResumeFilePath().isBlank()) {
+            return Optional.empty();
+        }
+
+        Path path = Paths.get(submission.getResumeFilePath()).normalize();
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            return Optional.empty();
+        }
+
+        emitAuditEvent(actorUserId, "RESUME_DOWNLOADED", "SUBMISSION", submissionId.toString(), authToken);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentDispositionFormData("attachment", safeFilename(submission.getResumeOriginalFilename()));
+        MediaType mediaType = MediaType.parseMediaType(
+                submission.getResumeContentType() != null && !submission.getResumeContentType().isBlank()
+                        ? submission.getResumeContentType()
+                        : MediaType.APPLICATION_OCTET_STREAM_VALUE);
+
+        return Optional.of(new ResumeDownload(new FileSystemResource(path), headers, mediaType));
     }
 
     @Transactional(readOnly = true)
@@ -295,6 +345,14 @@ public class SubmissionService {
             // Log but don't fail the reveal — audit is important but shouldn't block the action
             log.error("Failed to emit audit event: {}", e.getMessage());
         }
+    }
+
+    private String safeFilename(String filename) {
+        if (filename == null || filename.isBlank()) {
+            return "resume";
+        }
+        String sanitized = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        return sanitized.isBlank() ? "resume" : sanitized;
     }
 
     @SuppressWarnings("unchecked")

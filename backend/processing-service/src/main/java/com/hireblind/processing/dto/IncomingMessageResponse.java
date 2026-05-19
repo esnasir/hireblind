@@ -11,5 +11,5 @@ public record IncomingMessageResponse(
     String status,
     String resumeOriginalFilename,
     Long resumeFileSizeBytes,
-    String rawBody
+    String rawBodyVisibleToAdmin
 ) {}
