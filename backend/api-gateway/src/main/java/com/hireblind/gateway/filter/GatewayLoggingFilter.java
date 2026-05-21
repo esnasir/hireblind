@@ -32,7 +32,7 @@ public class GatewayLoggingFilter implements GlobalFilter, Ordered {
         }
         
         final String finalCorrelationId = correlationId;
-        exchange.getResponse().getHeaders().add(CORRELATION_ID_HEADER, finalCorrelationId);
+        exchange.getResponse().getHeaders().set(CORRELATION_ID_HEADER, finalCorrelationId);
 
         final ServerWebExchange finalExchange = exchange;
         final ServerHttpRequest finalRequest = finalExchange.getRequest();
