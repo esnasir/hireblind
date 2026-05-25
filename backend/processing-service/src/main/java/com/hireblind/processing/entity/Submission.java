@@ -56,6 +56,15 @@ public class Submission {
     @Column(name = "current_score_id")
     private UUID currentScoreId;
 
+    @Column(name = "current_stage_id")
+    private UUID currentStageId;
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<SubmissionAnswer> answers = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<SubmissionStageHistory> stageHistory = new java.util.ArrayList<>();
+
     @Column(name = "pipeline_stage", nullable = false)
     private String pipelineStage = "SCREENED";
 
@@ -160,6 +169,15 @@ public class Submission {
 
     public UUID getCurrentScoreId() { return currentScoreId; }
     public void setCurrentScoreId(UUID currentScoreId) { this.currentScoreId = currentScoreId; }
+
+    public UUID getCurrentStageId() { return currentStageId; }
+    public void setCurrentStageId(UUID currentStageId) { this.currentStageId = currentStageId; }
+
+    public java.util.List<SubmissionAnswer> getAnswers() { return answers; }
+    public void setAnswers(java.util.List<SubmissionAnswer> answers) { this.answers = answers; }
+
+    public java.util.List<SubmissionStageHistory> getStageHistory() { return stageHistory; }
+    public void setStageHistory(java.util.List<SubmissionStageHistory> stageHistory) { this.stageHistory = stageHistory; }
 
     public String getPipelineStage() { return pipelineStage; }
     public void setPipelineStage(String pipelineStage) { this.pipelineStage = pipelineStage; }

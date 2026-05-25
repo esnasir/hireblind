@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/campaigns/public/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/campaigns").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/campaigns/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/campaigns/*/activate").hasRole("ADMIN")

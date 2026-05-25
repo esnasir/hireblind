@@ -1,14 +1,13 @@
 package com.hireblind.iam.dto;
 
 import java.util.UUID;
+import java.time.Instant;
 
-/**
- * User profile response (no sensitive data).
- */
-public record UserResponse(
+public record TeamMemberDto(
         UUID id,
         String email,
         String fullName,
         String role,
-        UUID tenantId
+        String status,
+        Instant createdAt
 ) {}

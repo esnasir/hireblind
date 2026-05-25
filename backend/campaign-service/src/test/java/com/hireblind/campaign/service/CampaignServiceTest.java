@@ -39,9 +39,8 @@ class CampaignServiceTest {
     @DisplayName("Create campaign persists correctly")
     void createCampaign() {
         UUID ownerId = UUID.randomUUID();
-        var request = new CampaignCreateRequest(
-                "Test Campaign", "Description",
-                List.of("Java", "Spring"), null, 1, 2
+        CampaignCreateRequest request = new CampaignCreateRequest(
+                "Test Campaign", "Description", List.of("Java"), null, 10, 2, "Engineering", "Full-time", "Remote", List.of(), List.of()
         );
 
         when(campaignRepository.save(any(Campaign.class))).thenAnswer(inv -> {

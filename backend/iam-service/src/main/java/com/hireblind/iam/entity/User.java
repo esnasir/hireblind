@@ -15,6 +15,20 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tenant_id")
+    private Tenant tenant;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "invited_by")
+    private User invitedBy;
+
+    @Column(length = 20)
+    private String status = "ACTIVE";
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -52,6 +66,18 @@ public class User {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+
+    public Tenant getTenant() { return tenant; }
+    public void setTenant(Tenant tenant) { this.tenant = tenant; }
+
+    public User getInvitedBy() { return invitedBy; }
+    public void setInvitedBy(User invitedBy) { this.invitedBy = invitedBy; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

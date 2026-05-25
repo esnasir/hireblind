@@ -39,17 +39,26 @@ public class JwtService {
     /**
      * Generate an access token for the given user.
      */
-    public String generateAccessToken(UUID userId, String email, String role) {
+    public String generateAccessToken(UUID userId, String email, String role, UUID tenantId) {
         log.debug("Generating access token for user: {}", email);
-        return buildToken(userId, email, role, accessTokenExpirationMs, "access");
+        return buildToken(userId, email, role, tenantId, accessTokenExpirationMs, "access");
     }
 
     /**
      * Generate a refresh token for the given user.
      */
-    public String generateRefreshToken(UUID userId, String email, String role) {
+    public String generateRefreshToken(UUID userId, String email, String role, UUID tenantId) {
         log.debug("Generating refresh token for user: {}", email);
-        return buildToken(userId, email, role, refreshTokenExpirationMs, "refresh");
+        return buildToken(userId, email, role, tenantId, refreshTokenExpirationMs, "refresh");
+    }
+
+    /**
+     * Generate an invitation token for a new user.
+     */
+    public String generateInvitationToken(UUID userId, String email, String role, UUID tenantId) {
+        log.debug("Generating invitation token for user: {}", email);
+        // Set expiry to e.g., 7 days (604800000 ms)
+        return buildToken(userId, email, role, tenantId, 604800000L, "invitation");
     }
 
     /**
@@ -92,7 +101,16 @@ public class JwtService {
         return claims.get("role", String.class);
     }
 
-    private String buildToken(UUID userId, String email, String role, long expirationMs, String tokenType) {
+    /**
+     * Extract tenantId from token claims.
+     */
+    public UUID getTenantIdFromToken(String token) {
+        Claims claims = validateToken(token);
+        String tenantIdStr = claims.get("tenant_id", String.class);
+        return tenantIdStr != null ? UUID.fromString(tenantIdStr) : null;
+    }
+
+    private String buildToken(UUID userId, String email, String role, UUID tenantId, long expirationMs, String tokenType) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
@@ -101,6 +119,7 @@ public class JwtService {
                 .claims(Map.of(
                         "email", email,
                         "role", role,
+                        "tenant_id", tenantId != null ? tenantId.toString() : "",
                         "type", tokenType
                 ))
                 .issuedAt(now)

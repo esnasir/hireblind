@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,9 +55,9 @@ class AuthServiceTest {
     void loginSuccess() {
         when(userRepository.findByEmail("admin@hireblind.com")).thenReturn(Optional.of(testUser));
         when(passwordEncoder.matches("admin123", "hashed-password")).thenReturn(true);
-        when(jwtService.generateAccessToken(testUser.getId(), testUser.getEmail(), "ADMIN"))
+        when(jwtService.generateAccessToken(eq(testUser.getId()), eq("admin@hireblind.com"), eq("ADMIN"), eq(testUser.getTenant().getId())))
                 .thenReturn("access-token");
-        when(jwtService.generateRefreshToken(testUser.getId(), testUser.getEmail(), "ADMIN"))
+        when(jwtService.generateRefreshToken(eq(testUser.getId()), eq("admin@hireblind.com"), eq("ADMIN"), eq(testUser.getTenant().getId())))
                 .thenReturn("refresh-token");
 
         LoginResponse response = authService.login(new LoginRequest("admin@hireblind.com", "admin123"));

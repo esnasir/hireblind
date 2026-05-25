@@ -7,10 +7,17 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: iam-service
+        - id: iam-service-auth
           uri: ${IAM_SERVICE_URL:http://localhost:8081}
           predicates:
             - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        - id: iam-service-iam
+          uri: ${IAM_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/iam/**
           filters:
             - StripPrefix=1
 

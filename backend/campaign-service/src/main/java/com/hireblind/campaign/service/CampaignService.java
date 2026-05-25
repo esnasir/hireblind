@@ -3,7 +3,11 @@ package com.hireblind.campaign.service;
 import com.hireblind.campaign.dto.CampaignCreateRequest;
 import com.hireblind.campaign.dto.CampaignResponse;
 import com.hireblind.campaign.dto.CampaignUpdateRequest;
+import com.hireblind.campaign.dto.PipelineStageDto;
+import com.hireblind.campaign.dto.ScreeningQuestionDto;
 import com.hireblind.campaign.entity.Campaign;
+import com.hireblind.campaign.entity.PipelineStage;
+import com.hireblind.campaign.entity.ScreeningQuestion;
 import com.hireblind.campaign.entity.CampaignStatus;
 import com.hireblind.campaign.repository.CampaignRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -52,6 +56,37 @@ public class CampaignService {
         campaign.setStatus(CampaignStatus.DRAFT);
         campaign.setOwnerUserId(ownerUserId);
 
+        campaign.setDepartment(request.department());
+        campaign.setEmploymentType(request.employmentType());
+        campaign.setLocationType(request.locationType());
+
+        // We can generate a random slug if none provided, or base it on title
+        campaign.setPublicSlug(java.util.UUID.randomUUID().toString().substring(0, 8));
+
+        if (request.pipelineStages() != null) {
+            for (PipelineStageDto dto : request.pipelineStages()) {
+                PipelineStage stage = new PipelineStage();
+                stage.setCampaign(campaign);
+                stage.setName(dto.name());
+                stage.setOrderIndex(dto.orderIndex());
+                stage.setStageType(dto.stageType());
+                campaign.getPipelineStages().add(stage);
+            }
+        }
+
+        if (request.screeningQuestions() != null) {
+            for (ScreeningQuestionDto dto : request.screeningQuestions()) {
+                ScreeningQuestion q = new ScreeningQuestion();
+                q.setCampaign(campaign);
+                q.setQuestionText(dto.questionText());
+                q.setQuestionType(dto.questionType());
+                q.setIsRequired(dto.isRequired() != null ? dto.isRequired() : true);
+                q.setOptionsJson(toJson(dto.options()));
+                q.setOrderIndex(dto.orderIndex());
+                campaign.getScreeningQuestions().add(q);
+            }
+        }
+
         campaign = campaignRepository.save(campaign);
         log.info("Campaign created with id: {}", campaign.getId());
 
@@ -73,6 +108,13 @@ public class CampaignService {
     @Transactional(readOnly = true)
     public CampaignResponse getById(UUID id) {
         Campaign campaign = findOrThrow(id);
+        return toResponse(campaign);
+    }
+
+    @Transactional(readOnly = true)
+    public CampaignResponse getBySlug(String slug) {
+        Campaign campaign = campaignRepository.findByPublicSlug(slug)
+                .orElseThrow(() -> new NoSuchElementException("Campaign not found for slug: " + slug));
         return toResponse(campaign);
     }
 
@@ -140,7 +182,15 @@ public class CampaignService {
                 fromJson(c.getScreeningRulesJson(), Map.class),
                 c.getStatus().name(),
                 c.getOwnerUserId(), c.getCreatedAt(), c.getUpdatedAt(),
-                c.getTotalVacancies(), c.getBufferMultiplier()
+                c.getTotalVacancies(), c.getBufferMultiplier(),
+                c.getPublicSlug(), c.getDepartment(), c.getEmploymentType(), c.getLocationType(),
+                c.getPipelineStages().stream().map(s -> new PipelineStageDto(
+                        s.getId(), s.getName(), s.getOrderIndex(), s.getStageType()
+                )).toList(),
+                c.getScreeningQuestions().stream().map(q -> new ScreeningQuestionDto(
+                        q.getId(), q.getQuestionText(), q.getQuestionType(), q.getIsRequired(), 
+                        fromJson(q.getOptionsJson(), Map.class), q.getOrderIndex()
+                )).toList()
         );
     }
 

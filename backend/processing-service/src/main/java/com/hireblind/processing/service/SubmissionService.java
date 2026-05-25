@@ -140,6 +140,42 @@ public class SubmissionService {
         return new RevealResponse(sub.getRawCandidateName(), sub.getRawCandidateEmail());
     }
 
+    public void processApplication(ApplicationRequest request) {
+        log.info("Processing new application for campaign: {}", request.campaignId());
+        
+        Submission sub = new Submission();
+        sub.setCampaignId(request.campaignId());
+        sub.setRawCandidateName(request.candidateName());
+        sub.setRawCandidateEmail(request.candidateEmail());
+        sub.setPhone(request.candidatePhone());
+        
+        // We'll just store the resume URL in the extracted_urls_json for now,
+        // or as a mock file path, since this is a web submission.
+        sub.setResumeFilePath(request.resumeUrl());
+        sub.setResumeOriginalFilename("Linked Resume/Portfolio");
+        sub.setCandidateLabel("Candidate-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        sub.setProcessingStatus(ProcessingStatus.RECEIVED);
+        
+        // Save answers
+        if (request.answers() != null) {
+            for (ApplicationRequest.AnswerDto ans : request.answers()) {
+                SubmissionAnswer sa = new SubmissionAnswer();
+                sa.setSubmission(sub);
+                sa.setQuestionId(ans.questionId());
+                sa.setAnswerText(ans.answerText());
+                sub.getAnswers().add(sa);
+            }
+        }
+        
+        // We don't have a known initial stage yet from processing-service side directly, 
+        // but we'll log history when the recruiter starts moving it.
+        
+        submissionRepository.save(sub);
+        
+        // We trigger an audit event for the submission receipt
+        emitAuditEvent("SYSTEM", "SUBMISSION_RECEIVED", "SUBMISSION", sub.getId().toString());
+    }
+
     @Transactional(readOnly = true)
     public Optional<ResumeDownload> downloadResume(UUID submissionId, String actorUserId, String ignoredAuthToken) {
         Submission submission = findOrThrow(submissionId);

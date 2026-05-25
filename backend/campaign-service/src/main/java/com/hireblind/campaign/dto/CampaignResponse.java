@@ -19,7 +19,13 @@ public record CampaignResponse(
         Instant createdAt,
         Instant updatedAt,
         int totalVacancies,
-        int bufferMultiplier
+        int bufferMultiplier,
+        String publicSlug,
+        String department,
+        String employmentType,
+        String locationType,
+        List<PipelineStageDto> pipelineStages,
+        List<ScreeningQuestionDto> screeningQuestions
 ) {
     public int getPrimarySlotsTotal() { return totalVacancies; }
     public int getBufferSlotsTotal() { return totalVacancies * bufferMultiplier; }

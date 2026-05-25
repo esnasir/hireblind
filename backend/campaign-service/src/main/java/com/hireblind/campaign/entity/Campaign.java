@@ -45,6 +45,26 @@ public class Campaign {
     @Column(name = "buffer_multiplier", nullable = false)
     private Integer bufferMultiplier = 2;
 
+    @Column(name = "public_slug", unique = true)
+    private String publicSlug;
+
+    @Column
+    private String department;
+
+    @Column(name = "employment_type")
+    private String employmentType;
+
+    @Column(name = "location_type")
+    private String locationType;
+
+    @OneToMany(mappedBy = "campaign", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orderIndex ASC")
+    private java.util.List<PipelineStage> pipelineStages = new java.util.ArrayList<>();
+
+    @OneToMany(mappedBy = "campaign", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orderIndex ASC")
+    private java.util.List<ScreeningQuestion> screeningQuestions = new java.util.ArrayList<>();
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -93,4 +113,22 @@ public class Campaign {
 
     public Integer getBufferMultiplier() { return bufferMultiplier; }
     public void setBufferMultiplier(Integer bufferMultiplier) { this.bufferMultiplier = bufferMultiplier; }
+
+    public String getPublicSlug() { return publicSlug; }
+    public void setPublicSlug(String publicSlug) { this.publicSlug = publicSlug; }
+
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+
+    public String getEmploymentType() { return employmentType; }
+    public void setEmploymentType(String employmentType) { this.employmentType = employmentType; }
+
+    public String getLocationType() { return locationType; }
+    public void setLocationType(String locationType) { this.locationType = locationType; }
+
+    public java.util.List<PipelineStage> getPipelineStages() { return pipelineStages; }
+    public void setPipelineStages(java.util.List<PipelineStage> pipelineStages) { this.pipelineStages = pipelineStages; }
+
+    public java.util.List<ScreeningQuestion> getScreeningQuestions() { return screeningQuestions; }
+    public void setScreeningQuestions(java.util.List<ScreeningQuestion> screeningQuestions) { this.screeningQuestions = screeningQuestions; }
 }

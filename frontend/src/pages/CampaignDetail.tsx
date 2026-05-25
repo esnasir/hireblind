@@ -346,204 +346,88 @@ export default function CampaignDetail() {
       )}
 
       {activeTab === 'PIPELINE' && (
-        <div className="space-y-8">
-          {/* Vacancy Counter Header */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex items-center justify-between shadow-xs">
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-slate-800 uppercase tracking-wider">Vacancy Fulfilment Pipeline</h3>
-              <p className="text-xs text-slate-500">Track allocations and promote buffer candidates to primary vacancies.</p>
+        <div className="space-y-6">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Job Pipeline</h2>
+              <p className="text-sm text-slate-500">Track candidates across the custom hiring stages.</p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="bg-white border border-slate-200 px-4 py-2 rounded-lg text-center shadow-xs">
-                <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-wider">Total Vacancies</span>
-                <span className="text-lg font-bold text-slate-800">{campaign.totalVacancies}</span>
+            {campaign.publicSlug && (
+              <div className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Public Application Link</span>
+                <a href={`http://localhost:5173/apply/${campaign.publicSlug}`} target="_blank" rel="noreferrer" className="text-sm font-mono text-blue-600 hover:underline">
+                  hireblind.in/apply/{campaign.publicSlug}
+                </a>
               </div>
-              <div className="bg-blue-50 border border-blue-200 px-4 py-2 rounded-lg text-center shadow-xs">
-                <span className="block text-[9px] text-blue-400 font-bold uppercase tracking-wider">Primary Shortlisted</span>
-                <span className="text-lg font-bold text-blue-600">
-                  {pipeline.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').length} / {campaign.totalVacancies}
-                </span>
+            )}
+          </div>
+
+          {campaign.pipelineStages && campaign.pipelineStages.length > 0 ? (
+            <div className="flex gap-4 overflow-x-auto pb-6 pt-2 snap-x">
+              {campaign.pipelineStages
+                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
+                .map((stage: any) => {
+                  const stageSubmissions = submissions?.filter((s: any) => s.pipelineStage === stage.name) || [];
+                  return (
+                    <div key={stage.id} className="min-w-[320px] w-[320px] max-w-[320px] bg-slate-50/80 rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[70vh] snap-start">
+                      <div className="p-3 border-b border-slate-200 bg-white rounded-t-xl flex justify-between items-center">
+                        <h3 className="font-semibold text-[14px] text-slate-800">{stage.name}</h3>
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-none px-2">{stageSubmissions.length}</Badge>
+                      </div>
+                      <div className="p-3 overflow-y-auto flex-1 space-y-3">
+                        {stageSubmissions.map((sub: any) => (
+                          <div key={sub.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group" onClick={() => navigate(`/candidates/${sub.id}`)}>
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="font-mono text-[13px] font-semibold text-slate-700">{sub.candidateLabel}</span>
+                              <Badge variant="outline" className={`text-[10px] ${
+                                sub.matchScore && sub.matchScore >= 80 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'
+                              }`}>
+                                {sub.matchScore !== null && sub.matchScore !== undefined ? `${sub.matchScore}%` : 'N/A'}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center justify-between mt-3 text-[11px]">
+                              <span className="text-slate-500">{new Date(sub.receivedAt).toLocaleDateString()}</span>
+                              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500" />
+                            </div>
+                          </div>
+                        ))}
+                        {stageSubmissions.length === 0 && (
+                          <div className="py-8 text-center border-2 border-dashed border-slate-200 rounded-lg">
+                            <p className="text-[12px] text-slate-400 font-medium">No candidates in {stage.name}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+              })}
+              
+              {/* Native Rejected Column */}
+              <div className="min-w-[320px] w-[320px] max-w-[320px] bg-red-50/30 rounded-xl border border-red-100 shadow-sm flex flex-col max-h-[70vh] snap-start">
+                <div className="p-3 border-b border-red-100 bg-red-50/80 rounded-t-xl flex justify-between items-center">
+                  <h3 className="font-semibold text-[14px] text-red-800">Rejected</h3>
+                  <Badge variant="secondary" className="bg-red-100 text-red-600 border-none px-2">
+                    {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').length || 0}
+                  </Badge>
+                </div>
+                <div className="p-3 overflow-y-auto flex-1 space-y-3">
+                  {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').map((sub: any) => (
+                    <div key={sub.id} className="bg-white p-3 rounded-lg border border-red-200 shadow-xs opacity-75 hover:opacity-100 transition-opacity cursor-pointer group" onClick={() => navigate(`/candidates/${sub.id}`)}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-mono text-[13px] font-semibold text-slate-700">{sub.candidateLabel}</span>
+                      </div>
+                      <p className="text-[11px] text-red-600 font-medium truncate">{sub.rejectionReason || 'Rejected'}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Primary Candidates Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-blue-200 bg-blue-50/50">
-              <h2 className="text-lg font-semibold text-blue-900">Primary Candidates</h2>
-              <p className="text-sm text-blue-700">Top-ranked candidates selected for immediate review.</p>
+          ) : (
+            <div className="text-center py-20 bg-slate-50 rounded-xl border border-slate-200">
+              <AlertTriangle className="h-10 w-10 text-slate-400 mx-auto mb-3" />
+              <h3 className="text-lg font-medium text-slate-900 mb-1">No custom pipeline configured</h3>
+              <p className="text-[13px] text-slate-500 max-w-md mx-auto">This campaign was created without custom pipeline stages. Candidates will remain in the 'SCREENED' stage.</p>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="w-[220px]">Candidate</TableHead>
-                  <TableHead>Match Score & Rank</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pipeline
-                  .filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED')
-                  .sort((a: any, b: any) => (a.shortlistPosition || 0) - (b.shortlistPosition || 0))
-                  .map((sub: any) => (
-                    <TableRow key={sub.id} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs border mr-3 shadow-xs ${avatarColor(sub.matchScore)}`}>
-                            {getInitials(sub.candidateLabel)}
-                          </div>
-                          <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
-                          {sub.flaggedSuspicious && (
-                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`font-semibold ${
-                            sub.matchScore && sub.matchScore >= 80 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                          }`}>
-                            {sub.matchScore !== null && sub.matchScore !== undefined ? `${sub.matchScore}%` : 'N/A'}
-                          </Badge>
-                          <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 font-medium">Position #{sub.shortlistPosition}</Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2 items-center">
-                          <Link to={`/candidates/${sub.id}`}>
-                            <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 font-medium transition-colors">Review Profile</Button>
-                          </Link>
-                          <Button variant="outline" size="sm" className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {pipeline.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center text-slate-500 py-6 font-medium">No primary candidates shortlisted.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Buffer Candidates Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-amber-200 bg-amber-50/50">
-              <h2 className="text-lg font-semibold text-amber-900">Buffer Candidates</h2>
-              <p className="text-sm text-amber-700">Backup candidates available if a primary candidate is rejected.</p>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="w-[220px]">Candidate</TableHead>
-                  <TableHead>Match Score & Rank</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pipeline
-                  .filter((s: any) => s.shortlistTier === 'BUFFER' && s.pipelineStage === 'SHORTLISTED')
-                  .sort((a: any, b: any) => (a.shortlistPosition || 0) - (b.shortlistPosition || 0))
-                  .map((sub: any) => (
-                    <TableRow key={sub.id} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs border mr-3 shadow-xs ${avatarColor(sub.matchScore)}`}>
-                            {getInitials(sub.candidateLabel)}
-                          </div>
-                          <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
-                          {sub.flaggedSuspicious && (
-                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={`font-semibold ${
-                            sub.matchScore && sub.matchScore >= 80 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                          }`}>
-                            {sub.matchScore !== null && sub.matchScore !== undefined ? `${sub.matchScore}%` : 'N/A'}
-                          </Badge>
-                          <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 font-medium">Position #{sub.shortlistPosition}</Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2 items-center">
-                          <Link to={`/candidates/${sub.id}`}>
-                            <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 px-4 font-medium transition-colors">Review Profile</Button>
-                          </Link>
-                          {user?.role === 'ADMIN' && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full font-medium px-4 border-0 shadow-xs"
-                              onClick={() => promoteMutation.mutate(sub.id)}
-                              disabled={promoteMutation.isPending || pipeline.filter((s: any) => s.shortlistTier === 'PRIMARY' && s.pipelineStage === 'SHORTLISTED').length >= campaign.totalVacancies}
-                            >
-                              Promote to Primary
-                            </Button>
-                          )}
-                          <Button variant="outline" size="sm" className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {pipeline.filter((s: any) => s.shortlistTier === 'BUFFER' && s.pipelineStage === 'SHORTLISTED').length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center text-slate-500 py-6 font-medium">No buffer candidates shortlisted.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Rejected Candidates Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-red-200 bg-red-50/50">
-              <h2 className="text-lg font-semibold text-red-900">Rejected Candidates</h2>
-              <p className="text-sm text-red-700">Candidates excluded from active review lists.</p>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="w-[220px]">Candidate</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pipeline
-                  .filter((s: any) => s.pipelineStage === 'REJECTED')
-                  .map((sub: any) => (
-                    <TableRow key={sub.id} className="hover:bg-slate-50/50 transition-colors">
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs border mr-3 shadow-xs bg-red-50 text-red-700 border-red-200`}>
-                            {getInitials(sub.candidateLabel)}
-                          </div>
-                          <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
-                          {sub.flaggedSuspicious && (
-                            <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-slate-600 text-sm font-medium">{sub.rejectionReason}</TableCell>
-                      <TableCell className="text-right">
-                        <Link to={`/candidates/${sub.id}`}>
-                          <Button variant="outline" size="sm">Review Profile</Button>
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {pipeline.filter((s: any) => s.pipelineStage === 'REJECTED').length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center text-slate-500 py-6 font-medium">No rejected candidates yet.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+          )}
         </div>
       )}
 
@@ -559,7 +443,7 @@ export default function CampaignDetail() {
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
                 rows={3}
                 placeholder="e.g. Lacks required years of experience..."
               />
@@ -590,7 +474,7 @@ export default function CampaignDetail() {
             </div>
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-medium flex items-center">
+                <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-medium flex items-center shadow-sm">
                   Delete Campaign
                 </Button>
               </DialogTrigger>

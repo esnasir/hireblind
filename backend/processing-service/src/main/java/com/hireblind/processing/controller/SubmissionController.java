@@ -37,6 +37,13 @@ public class SubmissionController {
         return ResponseEntity.ok(submissionService.listByCampaign(campaignId, isAdmin));
     }
 
+    @PostMapping("/apply")
+    public ResponseEntity<Void> apply(@RequestBody @jakarta.validation.Valid ApplicationRequest request) {
+        log.info("POST /submissions/apply for campaign: {}", request.campaignId());
+        submissionService.processApplication(request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<SubmissionResponse> getById(
             @PathVariable UUID id,

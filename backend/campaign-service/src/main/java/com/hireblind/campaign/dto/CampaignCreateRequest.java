@@ -19,5 +19,15 @@ public record CampaignCreateRequest(
         
         Integer totalVacancies,
         
-        Integer bufferMultiplier
+        Integer bufferMultiplier,
+
+        String department,
+        
+        String employmentType,
+        
+        String locationType,
+        
+        List<PipelineStageDto> pipelineStages,
+        
+        List<ScreeningQuestionDto> screeningQuestions
 ) {}

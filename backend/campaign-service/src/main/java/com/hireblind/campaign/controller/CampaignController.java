@@ -52,6 +52,12 @@ public class CampaignController {
         return ResponseEntity.ok(campaignService.getById(id));
     }
 
+    @GetMapping("/public/{slug}")
+    public ResponseEntity<CampaignResponse> getBySlug(@PathVariable String slug) {
+        log.info("GET /campaigns/public/{}", slug);
+        return ResponseEntity.ok(campaignService.getBySlug(slug));
+    }
+
     @PatchMapping("/{id}")
     public ResponseEntity<CampaignResponse> update(
             @PathVariable UUID id,
