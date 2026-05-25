@@ -37,14 +37,24 @@ export default function Login() {
       setLoading(true);
       setError('');
       try {
-        const res = await api.post('/auth/google', { 
-          credential: tokenResponse.access_token 
+        const res = await api.post('/auth/google', {
+          credential: tokenResponse.access_token
         });
         const { accessToken, user } = res.data;
         setAuth(accessToken, user);
         navigate('/dashboard');
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Google authentication failed.');
+        if (err.response?.status === 428 && err.response?.data?.requiresRegistration) {
+          navigate('/register', {
+            state: {
+              googleEmail: err.response.data.email,
+              googleName: err.response.data.name,
+              fromGoogle: true
+            }
+          });
+        } else {
+          setError(err.response?.data?.message || 'Google authentication failed.');
+        }
       } finally {
         setLoading(false);
       }

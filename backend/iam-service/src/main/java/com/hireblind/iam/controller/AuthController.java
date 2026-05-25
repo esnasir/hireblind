@@ -41,10 +41,16 @@ public class AuthController {
     }
 
     @PostMapping("/google")
-    public ResponseEntity<LoginResponse> googleAuth(@Valid @RequestBody com.hireblind.iam.dto.GoogleAuthRequest request) {
+    public ResponseEntity<?> googleAuth(@RequestBody com.hireblind.iam.dto.GoogleAuthRequest request) {
         log.info("POST /auth/google");
-        LoginResponse response = googleAuthService.authenticateWithGoogle(request);
-        return ResponseEntity.ok(response);
+        Object result = googleAuthService.authenticateWithGoogle(request);
+
+        if (result instanceof java.util.Map) {
+            // New user — frontend must redirect to /register
+            return ResponseEntity.status(428).body(result);
+        }
+
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/login")
