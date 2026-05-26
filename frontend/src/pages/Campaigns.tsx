@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Plus, Briefcase, ChevronRight, Search, MapPin, Building, Calendar } from 'lucide-react';
 import { Input } from '../components/ui/input';
@@ -18,6 +18,7 @@ interface Campaign {
 }
 
 export default function Campaigns() {
+  const navigate = useNavigate();
   const { data: campaigns = [], isLoading } = useQuery<Campaign[]>({
     queryKey: ['campaigns'],
     queryFn: () => api.get('/campaigns').then(res => res.data),
@@ -31,7 +32,7 @@ export default function Campaigns() {
           <p className="text-[14px] text-slate-500 mt-1">Manage active roles and view historical hiring pipelines.</p>
         </div>
         
-        <Link to="/campaigns/new">
+        <Link to="/jobs/new">
           <Button className="h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white text-[13px] rounded-md shadow-sm">
             <Plus className="mr-2 h-4 w-4" /> Post a Job
           </Button>
@@ -62,7 +63,7 @@ export default function Campaigns() {
             <p className="text-[13px] text-slate-500 max-w-sm mx-auto mb-6">
               Create a new hiring campaign to start accepting candidates.
             </p>
-            <Link to="/campaigns/new">
+            <Link to="/jobs/new">
               <Button className="h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white text-[13px] rounded-md shadow-sm">
                 <Plus className="mr-2 h-4 w-4" /> Post a Job
               </Button>
@@ -82,7 +83,11 @@ export default function Campaigns() {
               </thead>
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {campaigns.map((campaign) => (
-                  <tr key={campaign.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <tr 
+                    key={campaign.id} 
+                    onClick={() => navigate(`/jobs/${campaign.id}`)}
+                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-900">{campaign.title}</span>
@@ -115,11 +120,9 @@ export default function Campaigns() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link to={`/campaigns/${campaign.id}`}>
-                        <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <ChevronRight className="h-4 w-4 text-slate-400" />
-                        </Button>
-                      </Link>
+                      <Button variant="ghost" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      </Button>
                     </td>
                   </tr>
                 ))}

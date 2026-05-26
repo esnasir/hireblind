@@ -148,7 +148,8 @@ public class GoogleAuthService {
             user.getEmail(),
             user.getFullName(),
             user.getRole().name(),
-            user.getTenant() != null ? user.getTenant().getId() : null
+            user.getTenant() != null ? user.getTenant().getId() : null,
+            user.getTenant() != null ? user.getTenant().getCompanyName() : null
         );
         return new LoginResponse(accessToken, refreshToken, userResponse);
     }

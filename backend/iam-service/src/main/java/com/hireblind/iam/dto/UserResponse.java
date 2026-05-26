@@ -10,5 +10,6 @@ public record UserResponse(
         String email,
         String fullName,
         String role,
-        UUID tenantId
+        UUID tenantId,
+        String companyName
 ) {}

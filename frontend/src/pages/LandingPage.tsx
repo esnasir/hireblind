@@ -1,11 +1,12 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { Shield, ArrowRight, EyeOff, CheckCircle2, Lock, FileText, Database } from 'lucide-react';
 import { Button } from '../components/ui/button';
 
 export default function LandingPage() {
-  const { accessToken } = useAuthStore();
+  const { user } = useAuthStore();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
@@ -24,22 +25,18 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-4">
-            {accessToken ? (
-              <Link to="/dashboard">
-                <Button variant="ghost" className="text-[13px] h-8 font-medium">
-                  Dashboard <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                </Button>
-              </Link>
+            {user ? (
+              <Button onClick={() => navigate('/dashboard')} variant="ghost" className="text-[13px] h-8 font-medium">
+                Dashboard <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+              </Button>
             ) : (
               <>
-                <Link to="/login" className="text-[13px] font-medium text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-                  Log in
-                </Link>
-                <Link to="/login">
-                  <Button className="h-8 text-[13px] px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-md shadow-sm transition-all">
-                    Get Started
-                  </Button>
-                </Link>
+                <Button variant="ghost" className="text-[13px] h-8 font-medium hidden sm:flex" onClick={() => navigate('/login')}>
+                  Sign in
+                </Button>
+                <Button className="h-8 text-[13px] px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-md shadow-sm transition-all" onClick={() => navigate('/register')}>
+                  Get started free
+                </Button>
               </>
             )}
           </div>
@@ -48,26 +45,30 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="pt-40 pb-24 px-6 relative max-w-5xl mx-auto text-center flex flex-col items-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-600 mb-8">
-          <span className="flex h-2 w-2 rounded-full bg-blue-500"></span>
-          HireBlind B2B Platform Live
-        </div>
-        
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-slate-900 tracking-tighter leading-[1.1] mb-6 max-w-4xl">
+        <h1 className="font-serif text-5xl lg:text-6xl font-normal text-slate-900 leading-tight mb-6 max-w-4xl">
           Hire for skill.<br />Not for background.
         </h1>
         
         <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed mb-10 font-medium">
-          A production-grade screening platform that algorithmically anonymizes candidate data, evaluates pure technical matching, and generates immutable compliance records.
+          HireBlind removes names, photos, and colleges from every application before your team sees them. Evaluate people for what they can do — not where they come from.
         </p>
         
-        <div className="flex flex-col sm:flex-row items-center gap-4">
-          <Link to={accessToken ? "/dashboard" : "/login"}>
-            <Button className="h-11 px-6 text-[14px] bg-slate-900 hover:bg-slate-800 text-white shadow-sm rounded-md transition-all flex items-center gap-2">
-              {accessToken ? "Go to Workspace" : "Start Onboarding"}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+        <div className="flex items-center gap-3 mt-8">
+          <Button
+            onClick={() => navigate('/register')}
+            className="bg-slate-900 text-white hover:bg-slate-800 h-11 px-6 text-[15px] font-medium"
+          >
+            Start for free
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-slate-600 h-11 px-4 text-[15px]"
+            onClick={() => {
+              document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            See how it works →
+          </Button>
         </div>
       </section>
 

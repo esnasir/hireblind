@@ -154,7 +154,7 @@ export default function CampaignDetail() {
   return (
     <div className="space-y-6">
       <div>
-        <Link to="/campaigns" className="text-sm font-medium text-slate-500 hover:text-slate-900 inline-flex items-center mb-4 transition-colors">
+        <Link to="/jobs" className="text-sm font-medium text-slate-500 hover:text-slate-900 inline-flex items-center mb-4 transition-colors">
           <ArrowLeft className="mr-1 h-4 w-4" /> Back to Campaigns
         </Link>
         <div className="flex items-start justify-between">

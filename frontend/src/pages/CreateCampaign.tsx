@@ -38,7 +38,7 @@ export default function CreateCampaign() {
     mutationFn: (data: any) => api.post('/campaigns', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      navigate('/campaigns');
+      navigate('/jobs');
     },
   });
 
@@ -66,7 +66,7 @@ export default function CreateCampaign() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
-        <Link to="/campaigns">
+        <Link to="/jobs">
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -293,7 +293,7 @@ export default function CreateCampaign() {
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-          <Button type="button" variant="ghost" onClick={() => navigate('/campaigns')}>Cancel</Button>
+          <Button type="button" variant="ghost" onClick={() => navigate('/jobs')}>Cancel</Button>
           <Button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm" disabled={createMutation.isPending}>
             {createMutation.isPending ? 'Publishing...' : 'Publish Job'}
           </Button>

@@ -119,7 +119,8 @@ public class AuthService {
                 user.getEmail(), 
                 user.getFullName(), 
                 user.getRole().name(),
-                user.getTenant() != null ? user.getTenant().getId() : null
+                user.getTenant() != null ? user.getTenant().getId() : null,
+                user.getTenant() != null ? user.getTenant().getCompanyName() : null
         );
     }
 
@@ -180,5 +181,21 @@ public class AuthService {
             counter++;
         }
         return slug;
+    }
+
+    public User updateProfile(String userId, String fullName) {
+        User user = userRepository.findById(UUID.fromString(userId))
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setFullName(fullName);
+        return userRepository.save(user);
+    }
+
+    public Tenant updateTenant(String tenantId, com.hireblind.iam.dto.UpdateTenantRequest request) {
+        Tenant tenant = tenantRepository.findById(UUID.fromString(tenantId))
+                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+        if (request.companyName() != null && !request.companyName().isBlank()) {
+            tenant.setCompanyName(request.companyName().trim());
+        }
+        return tenantRepository.save(tenant);
     }
 }

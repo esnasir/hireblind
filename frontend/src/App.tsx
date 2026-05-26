@@ -24,9 +24,15 @@ const queryClient = new QueryClient({
   },
 });
 
+import Settings from './pages/Settings';
+import ProfileSettings from './pages/settings/ProfileSettings';
+import CompanySettings from './pages/settings/CompanySettings';
+import Candidates from './pages/Candidates';
+
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
-  return user?.role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />;
+  const isAuthorized = user?.role === 'ADMIN' || user?.role === 'OWNER';
+  return isAuthorized ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
@@ -41,12 +47,20 @@ function App() {
           
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/campaigns" element={<Campaigns />} />
-            <Route path="/campaigns/new" element={<CreateCampaign />} />
-            <Route path="/campaigns/:id" element={<CampaignDetail />} />
+            <Route path="/jobs" element={<Campaigns />} />
+            <Route path="/jobs/new" element={<CreateCampaign />} />
+            <Route path="/jobs/:id" element={<CampaignDetail />} />
+            <Route path="/candidates" element={<Candidates />} />
             <Route path="/candidates/:id" element={<CandidateDetail />} />
-            <Route path="/settings/team" element={<TeamSettings />} />
+            <Route path="/team" element={<TeamSettings />} />
             
+            <Route path="/settings" element={<Settings />}>
+              <Route path="profile" element={<ProfileSettings />} />
+              <Route path="company" element={<CompanySettings />} />
+              <Route path="notifications" element={<div className="p-6 text-slate-500">Notifications settings coming soon.</div>} />
+              <Route path="security" element={<div className="p-6 text-slate-500">Security settings coming soon.</div>} />
+            </Route>
+
             <Route path="/audit" element={
               <AdminRoute>
                 <AuditLog />

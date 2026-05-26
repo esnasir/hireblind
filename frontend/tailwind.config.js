@@ -6,6 +6,10 @@ export default {
     "./src/**/*.{ts,tsx,js,jsx}",
   ],
   theme: {
+    fontFamily: {
+      sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+      serif: ['"EB Garamond"', 'Georgia', 'ui-serif', 'serif'],
+    },
     extend: {
       borderRadius: {
         lg: "var(--radius)",
