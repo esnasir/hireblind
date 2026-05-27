@@ -21,29 +21,31 @@ services:
   iam-service:
     build: ./backend/iam-service
     container_name: hireblind-iam
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_iam
       SPRING_DATASOURCE_USERNAME: hireblind
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
-      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT_URI: https://hireblind.in/api/auth/oauth2/callback/google
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       SERVER_PORT: 8081
-
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # ── Campaign Service ────────────────────────────────────────
   campaign-service:
     build: ./backend/campaign-service
     container_name: hireblind-campaign
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_campaign
       SPRING_DATASOURCE_USERNAME: hireblind
@@ -53,13 +55,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # ── Processing Service ──────────────────────────────────────
   processing-service:
     build: ./backend/processing-service
     container_name: hireblind-processing
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     volumes:
       - resume_storage:/app/resumes
     environment:
@@ -86,13 +94,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # ── Audit Service ───────────────────────────────────────────
   audit-service:
     build: ./backend/audit-service
     container_name: hireblind-audit
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/hireblind_audit
       SPRING_DATASOURCE_USERNAME: hireblind
@@ -102,6 +116,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   # ── API Gateway ─────────────────────────────────────────────
   api-gateway:
@@ -117,10 +137,14 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       SERVER_PORT: 8080
     depends_on:
-      - iam-service
-      - campaign-service
-      - processing-service
-      - audit-service
+      iam-service:
+        condition: service_healthy
+      campaign-service:
+        condition: service_healthy
+      processing-service:
+        condition: service_healthy
+      audit-service:
+        condition: service_healthy
 
 volumes:
   pgdata:

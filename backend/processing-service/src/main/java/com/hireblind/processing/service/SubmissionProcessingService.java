@@ -44,6 +44,7 @@ public class SubmissionProcessingService {
     private final ResumeTextSanitizer resumeTextSanitizer;
     private final LlmResponseValidator llmResponseValidator;
     private final AuditClient auditClient;
+    private final WebClient.Builder webClientBuilder;
 
     @Value("${campaign.service.url}")
     private String campaignServiceUrl;
@@ -321,7 +322,7 @@ public class SubmissionProcessingService {
 
     private CampaignResponse fetchCampaignDetails(UUID campaignId) {
         String token = jwtUtil.generateToken("processing-service", "ADMIN");
-        WebClient client = WebClient.builder().baseUrl(campaignServiceUrl).build();
+        WebClient client = webClientBuilder.baseUrl(campaignServiceUrl).build();
 
         return client.get()
                 .uri("/campaigns/{id}", campaignId)
@@ -333,7 +334,7 @@ public class SubmissionProcessingService {
 
     private List<CampaignResponse> fetchActiveCampaigns() {
         String token = jwtUtil.generateToken("processing-service", "ADMIN");
-        WebClient client = WebClient.builder().baseUrl(campaignServiceUrl).build();
+        WebClient client = webClientBuilder.baseUrl(campaignServiceUrl).build();
 
         return client.get()
                 .uri(uriBuilder -> uriBuilder

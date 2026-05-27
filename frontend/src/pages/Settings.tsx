@@ -1,5 +1,8 @@
 import React from 'react';
-import { Outlet, Link, useLocation, Navigate } from 'react-router-dom';
+import { Navigate, Outlet, Link, useLocation } from 'react-router-dom';
+import { Bell, Building2, Lock, User } from 'lucide-react';
+import { PageHeader } from '../components/ui/page';
+import { cn } from '../lib/utils';
 
 export default function Settings() {
   const location = useLocation();
@@ -9,42 +12,44 @@ export default function Settings() {
   }
 
   const links = [
-    { name: 'Profile', path: '/settings/profile' },
-    { name: 'Company', path: '/settings/company' },
-    { name: 'Notifications', path: '/settings/notifications' },
-    { name: 'Security', path: '/settings/security' },
+    { name: 'Profile', path: '/settings/profile', icon: User },
+    { name: 'Company', path: '/settings/company', icon: Building2 },
+    { name: 'Notifications', path: '/settings/notifications', icon: Bell },
+    { name: 'Security', path: '/settings/security', icon: Lock },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Settings</h1>
-        <p className="text-[14px] text-slate-500 mt-1">Manage your account and workspace preferences.</p>
-      </div>
-      
-      <div className="flex flex-col md:flex-row gap-8 border-t border-slate-200 pt-8">
-        <aside className="w-full md:w-[160px] shrink-0">
-          <nav className="flex flex-row md:flex-col space-x-2 md:space-x-0 md:space-y-1 overflow-x-auto pb-2 md:pb-0">
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Settings"
+        description="Manage account details, company profile, notifications, and security preferences."
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+        <aside className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm lg:h-fit">
+          <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
             {links.map((link) => {
+              const Icon = link.icon;
               const isActive = location.pathname.startsWith(link.path);
               return (
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-3 py-2 rounded-md text-[13px] font-medium transition-colors whitespace-nowrap ${
-                    isActive 
-                      ? 'bg-slate-100 text-slate-900' 
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
+                  className={cn(
+                    'flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950',
+                    isActive && 'bg-slate-950 text-white hover:bg-slate-950 hover:text-white'
+                  )}
                 >
+                  <Icon className="h-4 w-4" />
                   {link.name}
                 </Link>
               );
             })}
           </nav>
         </aside>
-        
-        <div className="flex-1 min-w-0 max-w-2xl">
+
+        <div className="min-w-0">
           <Outlet />
         </div>
       </div>

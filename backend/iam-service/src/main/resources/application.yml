@@ -38,5 +38,5 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [correlationId=%X{correlationId}] - %msg%n"
   level:
-    com.hireblind.iam: DEBUG
+    com.hireblind.iam: INFO
     org.springframework.security: INFO

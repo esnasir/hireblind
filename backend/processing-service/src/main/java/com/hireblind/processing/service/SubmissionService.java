@@ -48,6 +48,7 @@ public class SubmissionService {
                              CandidateNoteRepository noteRepository,
                              ObjectMapper objectMapper,
                              JwtUtil jwtUtil,
+                             RestTemplate restTemplate,
                              @Value("${audit.service.url}") String auditServiceUrl) {
         this.submissionRepository = submissionRepository;
         this.profileRepository = profileRepository;
@@ -55,7 +56,7 @@ public class SubmissionService {
         this.noteRepository = noteRepository;
         this.objectMapper = objectMapper;
         this.jwtUtil = jwtUtil;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = restTemplate;
         this.auditServiceUrl = auditServiceUrl;
     }
 

@@ -1,57 +1,68 @@
 import React from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, Copy, FolderArchive, ShieldAlert, User, XCircle } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, User, FileText, ChevronRight, CheckCircle, FolderArchive, XCircle, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge } from '../components/ui/page';
+import { candidateRoute, formatDate, safeCandidateLabel, scoreClasses, statusClasses, titleCaseStatus } from '../lib/display';
+
+interface PipelineStage {
+  id: string;
+  name: string;
+  orderIndex: number;
+}
+
+interface Campaign {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  totalVacancies?: number;
+  publicSlug?: string;
+  pipelineStages?: PipelineStage[];
+}
+
+interface Submission {
+  id: string;
+  candidateLabel?: string;
+  matchScore?: number | null;
+  processingStatus?: string;
+  pipelineStage?: string;
+  receivedAt?: string;
+  flaggedSuspicious?: boolean;
+  shortlistTier?: string;
+  rejectionReason?: string;
+}
 
 export default function CampaignDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [confirmTitle, setConfirmTitle] = React.useState('');
-  
   const [activeTab, setActiveTab] = React.useState<'ALL' | 'PIPELINE'>('ALL');
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectCandidateId, setRejectCandidateId] = React.useState<string | null>(null);
   const [rejectReason, setRejectReason] = React.useState('');
 
-  const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/campaigns/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
-      setDeleteOpen(false);
-      navigate('/campaigns');
-    },
-  });
-
-  const { data: campaign, isLoading: isLoadingCampaign } = useQuery({
+  const { data: campaign, isLoading: isLoadingCampaign } = useQuery<Campaign>({
     queryKey: ['campaign', id],
-    queryFn: () => api.get(`/campaigns/${id}`).then(res => res.data),
+    queryFn: () => api.get(`/campaigns/${id}`).then((res) => res.data),
   });
 
-  const { data: submissions, isLoading: isLoadingSubmissions } = useQuery({
+  const { data: submissions = [], isLoading: isLoadingSubmissions } = useQuery<Submission[]>({
     queryKey: ['campaign-submissions', id],
-    queryFn: () => api.get(`/submissions?campaignId=${id}`).then(res => res.data),
+    queryFn: () => api.get(`/submissions?campaignId=${id}`).then((res) => res.data),
   });
-
-  const { data: pipeline = [] } = useQuery({
-    queryKey: ['pipeline', id],
-    queryFn: () => api.get(`/submissions?campaignId=${id}`).then(res => res.data),
-  });
-
 
   const transitionMutation = useMutation({
-    mutationFn: (action: 'activate' | 'close' | 'archive') =>
-      api.post(`/campaigns/${id}/${action}`).then(res => res.data),
+    mutationFn: (action: 'activate' | 'close' | 'archive') => api.post(`/campaigns/${id}/${action}`).then((res) => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign', id] });
       queryClient.invalidateQueries({ queryKey: ['campaigns'] });
@@ -59,45 +70,41 @@ export default function CampaignDetail() {
   });
 
   const generateShortlistMutation = useMutation({
-    mutationFn: () => api.post(`/campaigns/${id}/shortlist/generate`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
-      queryClient.invalidateQueries({ queryKey: ['pipeline', id] });
-    },
+    mutationFn: () => api.post(`/submissions/campaigns/${id}/shortlist/generate`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] }),
   });
 
   const approveBufferMutation = useMutation({
     mutationFn: (subId: string) => api.post(`/submissions/${subId}/shortlist/approve-buffer`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
-      queryClient.invalidateQueries({ queryKey: ['pipeline', id] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] }),
   });
 
   const shortlistMutation = useMutation({
     mutationFn: (subId: string) => api.post(`/submissions/${subId}/shortlist?campaignId=${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
-      queryClient.invalidateQueries({ queryKey: ['pipeline', id] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] }),
   });
 
   const promoteMutation = useMutation({
     mutationFn: (subId: string) => api.post(`/submissions/${subId}/promote`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
-      queryClient.invalidateQueries({ queryKey: ['pipeline', id] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] }),
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ subId, reason }: { subId: string, reason: string }) => api.post(`/submissions/${subId}/shortlist/reject`, { reason }),
+    mutationFn: ({ subId, reason }: { subId: string; reason: string }) => api.post(`/submissions/${subId}/shortlist/reject`, { reason }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['campaign-submissions', id] });
-      queryClient.invalidateQueries({ queryKey: ['pipeline', id] });
       setRejectOpen(false);
       setRejectReason('');
       setRejectCandidateId(null);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/campaigns/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+      setDeleteOpen(false);
+      navigate('/jobs');
     },
   });
 
@@ -106,101 +113,46 @@ export default function CampaignDetail() {
     setRejectOpen(true);
   };
 
-  function avatarColor(score: number | null) {
-    if (score === null || score === undefined) return 'bg-slate-100 text-slate-600 border-slate-200';
-    if (score >= 90) return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    if (score >= 80) return 'bg-blue-50 text-blue-700 border-blue-200';
-    return 'bg-slate-100 text-slate-600 border-slate-200';
+  if (isLoadingCampaign) {
+    return <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm text-slate-500">Loading job...</div>;
   }
 
-  function getInitials(label: string) {
-    if (!label) return 'C';
-    const cleanLabel = label.trim();
-    
-    // E.g., "Candidate Jade Falcon" -> "JF"
-    // E.g., "Alex Johnson" -> "AJ"
-    const parts = cleanLabel.split(/\s+/);
-    if (parts.length >= 3 && parts[0].toLowerCase() === 'candidate') {
-      return (parts[1].charAt(0) + parts[2].charAt(0)).toUpperCase();
-    }
-    if (parts.length >= 2) {
-      if (parts[0].toLowerCase() === 'candidate') {
-        const second = parts[1];
-        if (second.includes('-')) {
-          const subparts = second.split('-');
-          return subparts[0].charAt(0).toUpperCase();
-        }
-        return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-      }
-      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-    }
-    
-    // E.g., "Candidate-7b985e9d" -> "C7"
-    if (cleanLabel.includes('-')) {
-      const parts = cleanLabel.split('-');
-      const second = parts[1];
-      if (second.length > 3) {
-        return ('C' + second.charAt(0)).toUpperCase();
-      }
-      return second.slice(0, 2).toUpperCase();
-    }
-    
-    return cleanLabel.slice(0, 2).toUpperCase();
+  if (!campaign) {
+    return <div className="rounded-lg border border-slate-200 bg-white p-8 text-sm text-slate-500">Campaign not found.</div>;
   }
 
-  if (isLoadingCampaign) return <div className="space-y-4"><Skeleton className="h-8 w-1/3"/><Skeleton className="h-24 w-full"/></div>;
-  if (!campaign) return <div>Campaign not found</div>;
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'OWNER';
+  const shortlistedCount = submissions.filter((s) => s.pipelineStage === 'SHORTLISTED').length;
+  const rejectedCount = submissions.filter((s) => s.pipelineStage === 'REJECTED').length;
+  const publicApplicationUrl = campaign.publicSlug ? `${window.location.origin}/apply/${campaign.publicSlug}` : '';
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link to="/jobs" className="text-sm font-medium text-slate-500 hover:text-slate-900 inline-flex items-center mb-4 transition-colors">
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Campaigns
+    <div className="space-y-8">
+      <div className="space-y-4">
+        <Link to="/jobs" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-950">
+          <ArrowLeft className="h-4 w-4" /> Back to jobs
         </Link>
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">{campaign.title}</h1>
-              <Badge variant={campaign.status === 'ACTIVE' ? 'default' : 'secondary'} className={campaign.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : ''}>
-                {campaign.status}
-              </Badge>
-            </div>
-            <p className="text-slate-600 mt-2 max-w-3xl">{campaign.description}</p>
-            <div className="flex items-center gap-1.5 mt-3 text-xs text-slate-400 font-semibold bg-slate-50 border border-slate-100 rounded-full px-3 py-1.5 w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-              Total Candidates Processed: <span className="text-slate-800 font-extrabold">{submissions?.length || 0}</span>
-            </div>
-          </div>
-
-          {user?.role === 'ADMIN' && (
-            <div className="flex gap-2">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <PageHeader
+            eyebrow="Job campaign"
+            title={campaign.title}
+            description={campaign.description}
+          />
+          {isAdmin && (
+            <div className="flex flex-wrap gap-2">
               {campaign.status === 'DRAFT' && (
-                <Button 
-                  onClick={() => transitionMutation.mutate('activate')}
-                  disabled={transitionMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 text-white shadow-sm flex items-center"
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" /> Publish Campaign
+                <Button onClick={() => transitionMutation.mutate('activate')} disabled={transitionMutation.isPending} className="bg-emerald-700 text-white hover:bg-emerald-800">
+                  <CheckCircle className="h-4 w-4" /> Publish
                 </Button>
               )}
               {campaign.status === 'ACTIVE' && (
-                <Button 
-                  onClick={() => transitionMutation.mutate('close')}
-                  disabled={transitionMutation.isPending}
-                  variant="destructive"
-                  className="shadow-sm flex items-center"
-                >
-                  <XCircle className="mr-2 h-4 w-4" /> Close Campaign
+                <Button onClick={() => transitionMutation.mutate('close')} disabled={transitionMutation.isPending} variant="destructive">
+                  <XCircle className="h-4 w-4" /> Close
                 </Button>
               )}
               {campaign.status === 'CLOSED' && (
-                <Button 
-                  onClick={() => transitionMutation.mutate('archive')}
-                  disabled={transitionMutation.isPending}
-                  variant="outline"
-                  className="border-slate-300 text-slate-700 hover:bg-slate-100 flex items-center"
-                >
-                  <FolderArchive className="mr-2 h-4 w-4" /> Archive Campaign
+                <Button onClick={() => transitionMutation.mutate('archive')} disabled={transitionMutation.isPending} variant="outline">
+                  <FolderArchive className="h-4 w-4" /> Archive
                 </Button>
               )}
             </div>
@@ -208,314 +160,233 @@ export default function CampaignDetail() {
         </div>
       </div>
 
-
-      <div className="flex border-b border-slate-200 mb-6">
-        <button 
-          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'ALL' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          onClick={() => setActiveTab('ALL')}
-        >
-          All Candidates
-        </button>
-        <button 
-          className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${activeTab === 'PIPELINE' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-          onClick={() => setActiveTab('PIPELINE')}
-        >
-          Shortlist Pipeline
-        </button>
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard label="Total candidates" value={isLoadingSubmissions ? '-' : submissions.length} detail="Applications received" icon={<User className="h-5 w-5" />} />
+        <MetricCard label="Shortlisted" value={shortlistedCount} detail="In review pipeline" icon={<CheckCircle className="h-5 w-5" />} />
+        <MetricCard label="Rejected" value={rejectedCount} detail="Removed from shortlist" icon={<XCircle className="h-5 w-5" />} />
+        <MetricCard label="Status" value={<span className="text-xl">{titleCaseStatus(campaign.status)}</span>} detail={`${campaign.totalVacancies || 0} vacancies`} icon={<FolderArchive className="h-5 w-5" />} />
       </div>
 
-      {activeTab === 'ALL' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Anonymized Candidates</h2>
-              <p className="text-sm text-slate-500">Ranked by AI match score. PII is hidden until explicitly revealed.</p>
-            </div>
-            {user?.role === 'ADMIN' && campaign.status === 'CLOSED' && (
-              <Button onClick={() => generateShortlistMutation.mutate()} disabled={generateShortlistMutation.isPending} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {generateShortlistMutation.isPending ? 'Generating...' : 'Generate Shortlist'}
-              </Button>
-            )}
+      {publicApplicationUrl && (
+        <div className="flex flex-col gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-blue-950">Public application link</p>
+            <a href={publicApplicationUrl} target="_blank" rel="noreferrer" className="mt-1 block break-all text-sm text-blue-700 hover:underline">{publicApplicationUrl}</a>
           </div>
-
-          {isLoadingSubmissions ? (
-            <div className="p-6 space-y-4">
-              {[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-            </div>
-          ) : submissions?.length === 0 ? (
-            <div className="text-center py-12">
-              <User className="mx-auto h-12 w-12 text-slate-300 mb-4" />
-              <h3 className="text-lg font-medium text-slate-900">No candidates yet</h3>
-              <p className="text-slate-500 mt-1">Wait for applications to be submitted and processed.</p>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50">
-                  <TableHead className="w-[220px]">Candidate</TableHead>
-                  <TableHead>Match Score</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Pipeline Stage</TableHead>
-                  <TableHead>Received</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {submissions.map((sub: any) => (
-                  <TableRow key={sub.id} className="hover:bg-slate-50/50 cursor-default transition-colors">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div className={`h-9 w-9 rounded-full flex items-center justify-center font-bold text-xs border mr-3 shadow-xs ${avatarColor(sub.matchScore)}`}>
-                          {getInitials(sub.candidateLabel)}
-                        </div>
-                        <span className="font-mono text-sm text-slate-700">{sub.candidateLabel}</span>
-                        {sub.flaggedSuspicious && (
-                          <span title="Suspicious submission: resume contains potential prompt override keywords, hidden Unicode blocks, or system instructions.">
-                            <AlertTriangle className="h-4 w-4 text-amber-500 ml-2 animate-pulse" />
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`font-semibold ${
-                        sub.matchScore && sub.matchScore >= 80 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                      }`}>
-                        {sub.matchScore !== null && sub.matchScore !== undefined ? `${sub.matchScore}%` : 'N/A'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`font-normal ${
-                        sub.processingStatus === 'SCORED' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                        sub.processingStatus === 'REVEALED' ? 'bg-amber-50 text-amber-700 border-amber-200' : ''
-                      }`}>
-                        {sub.processingStatus}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal bg-slate-50">
-                        {sub.pipelineStage || 'SCREENED'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      {new Date(sub.receivedAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end items-center gap-2">
-                        <Link to={`/candidates/${sub.id}`}>
-                          <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:text-slate-900 px-4 transition-colors font-medium">
-                            Review Profile
-                          </Button>
-                        </Link>
-                        {sub.pipelineStage === 'REJECTED' ? (
-                          <Badge variant="outline" className="bg-red-50 text-red-600 border-red-200 rounded-full px-3 py-0.5">Rejected</Badge>
-                        ) : sub.pipelineStage === 'SHORTLISTED' ? (
-                          <Badge variant="outline" className={`font-semibold rounded-full px-3 py-0.5 ${
-                            sub.shortlistTier === 'PRIMARY' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>
-                            {sub.shortlistTier}
-                          </Badge>
-                        ) : (
-                          <>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              className="bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium px-4 shadow-xs border-0"
-                              onClick={() => shortlistMutation.mutate(sub.id)}
-                              disabled={shortlistMutation.isPending}
-                            >
-                              Shortlist
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 rounded-full font-medium px-4"
-                              onClick={() => handleRejectClick(sub.id)}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Button type="button" variant="outline" onClick={() => navigator.clipboard?.writeText(publicApplicationUrl)} className="w-fit border-blue-200 bg-white text-blue-700 hover:bg-blue-50">
+            <Copy className="h-4 w-4" /> Copy
+          </Button>
         </div>
       )}
 
-      {activeTab === 'PIPELINE' && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-end">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Job Pipeline</h2>
-              <p className="text-sm text-slate-500">Track candidates across the custom hiring stages.</p>
-            </div>
-            {campaign.publicSlug && (
-              <div className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Public Application Link</span>
-                <a href={`http://localhost:5173/apply/${campaign.publicSlug}`} target="_blank" rel="noreferrer" className="text-sm font-mono text-blue-600 hover:underline">
-                  hireblind.in/apply/{campaign.publicSlug}
-                </a>
-              </div>
-            )}
-          </div>
+      <div className="flex gap-2 border-b border-slate-200">
+        {[
+          ['ALL', 'All candidates'],
+          ['PIPELINE', 'Pipeline'],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as 'ALL' | 'PIPELINE')}
+            className={`border-b-2 px-4 py-3 text-sm font-medium transition-colors ${activeTab === key ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-950'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
+      {activeTab === 'ALL' && (
+        <SectionCard
+          title="Anonymized candidates"
+          description="Ranked by match score. PII remains hidden until an authorized reveal."
+          action={user?.role === 'ADMIN' && campaign.status === 'CLOSED' && (
+            <Button onClick={() => generateShortlistMutation.mutate()} disabled={generateShortlistMutation.isPending} className="bg-blue-700 text-white hover:bg-blue-800">
+              {generateShortlistMutation.isPending ? 'Generating...' : 'Generate shortlist'}
+            </Button>
+          )}
+          contentClassName="p-0"
+        >
+          {isLoadingSubmissions ? (
+            <div className="p-8 text-sm text-slate-500">Loading candidates...</div>
+          ) : submissions.length === 0 ? (
+            <EmptyState icon={<User className="h-5 w-5" />} title="No candidates yet" description="Applications will appear here once candidates submit the public form." />
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                    <tr>
+                      <th className="px-5 py-3">Candidate</th>
+                      <th className="px-5 py-3">Match score</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3">Pipeline stage</th>
+                      <th className="px-5 py-3">Received</th>
+                      <th className="px-5 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {submissions.map((sub) => (
+                      <tr key={sub.id} className="hover:bg-slate-50">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full border border-blue-100 bg-blue-50 text-xs font-semibold text-blue-700">
+                              {safeCandidateLabel(sub, false).slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-slate-950">{safeCandidateLabel(sub, false)}</div>
+                              {sub.flaggedSuspicious && <div className="mt-1 flex items-center gap-1 text-xs text-amber-700"><AlertTriangle className="h-3 w-3" /> Flagged for review</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4"><StatusBadge className={scoreClasses(sub.matchScore)}>{sub.matchScore != null ? `${sub.matchScore}%` : 'Not scored'}</StatusBadge></td>
+                        <td className="px-5 py-4"><StatusBadge className={statusClasses(sub.processingStatus)}>{titleCaseStatus(sub.processingStatus)}</StatusBadge></td>
+                        <td className="px-5 py-4"><StatusBadge className={statusClasses(sub.pipelineStage || 'SCREENED')}>{titleCaseStatus(sub.pipelineStage || 'SCREENED')}</StatusBadge></td>
+                        <td className="px-5 py-4 text-slate-500">{formatDate(sub.receivedAt)}</td>
+                        <td className="px-5 py-4">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Link to={candidateRoute(sub.id)}>
+                              <Button variant="outline" size="sm">Review</Button>
+                            </Link>
+                            {sub.pipelineStage === 'REJECTED' ? (
+                              <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Rejected</Badge>
+                            ) : sub.pipelineStage === 'SHORTLISTED' ? (
+                              <>
+                                <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">{sub.shortlistTier || 'Shortlisted'}</Badge>
+                                <Button variant="outline" size="sm" onClick={() => promoteMutation.mutate(sub.id)} disabled={promoteMutation.isPending}>Promote</Button>
+                                {sub.shortlistTier === 'BUFFER' && <Button variant="outline" size="sm" onClick={() => approveBufferMutation.mutate(sub.id)} disabled={approveBufferMutation.isPending}>Approve buffer</Button>}
+                              </>
+                            ) : (
+                              <>
+                                <Button size="sm" className="bg-blue-700 text-white hover:bg-blue-800" onClick={() => shortlistMutation.mutate(sub.id)} disabled={shortlistMutation.isPending}>Shortlist</Button>
+                                <Button variant="outline" size="sm" className="border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="divide-y divide-slate-100 lg:hidden">
+                {submissions.map((sub) => (
+                  <div key={sub.id} className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-950">{safeCandidateLabel(sub, false)}</p>
+                        <p className="mt-1 text-sm text-slate-500">{formatDate(sub.receivedAt)}</p>
+                      </div>
+                      <StatusBadge className={scoreClasses(sub.matchScore)}>{sub.matchScore != null ? `${sub.matchScore}%` : 'New'}</StatusBadge>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Link to={candidateRoute(sub.id)}><Button variant="outline" size="sm">Review</Button></Link>
+                      <Button size="sm" className="bg-blue-700 text-white hover:bg-blue-800" onClick={() => shortlistMutation.mutate(sub.id)}>Shortlist</Button>
+                      <Button variant="outline" size="sm" className="border-rose-200 bg-rose-50 text-rose-700" onClick={() => handleRejectClick(sub.id)}>Reject</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </SectionCard>
+      )}
+
+      {activeTab === 'PIPELINE' && (
+        <SectionCard title="Pipeline" description="Track candidates across configured stages." contentClassName="overflow-x-auto p-5">
           {campaign.pipelineStages && campaign.pipelineStages.length > 0 ? (
-            <div className="flex gap-4 overflow-x-auto pb-6 pt-2 snap-x">
-              {campaign.pipelineStages
-                .sort((a: any, b: any) => a.orderIndex - b.orderIndex)
-                .map((stage: any) => {
-                  const stageSubmissions = submissions?.filter((s: any) => s.pipelineStage === stage.name) || [];
-                  return (
-                    <div key={stage.id} className="min-w-[320px] w-[320px] max-w-[320px] bg-slate-50/80 rounded-xl border border-slate-200 shadow-sm flex flex-col max-h-[70vh] snap-start">
-                      <div className="p-3 border-b border-slate-200 bg-white rounded-t-xl flex justify-between items-center">
-                        <h3 className="font-semibold text-[14px] text-slate-800">{stage.name}</h3>
-                        <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-none px-2">{stageSubmissions.length}</Badge>
-                      </div>
-                      <div className="p-3 overflow-y-auto flex-1 space-y-3">
-                        {stageSubmissions.map((sub: any) => (
-                          <div key={sub.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group" onClick={() => navigate(`/candidates/${sub.id}`)}>
-                            <div className="flex justify-between items-start mb-2">
-                              <span className="font-mono text-[13px] font-semibold text-slate-700">{sub.candidateLabel}</span>
-                              <Badge variant="outline" className={`text-[10px] ${
-                                sub.matchScore && sub.matchScore >= 80 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                              }`}>
-                                {sub.matchScore !== null && sub.matchScore !== undefined ? `${sub.matchScore}%` : 'N/A'}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center justify-between mt-3 text-[11px]">
-                              <span className="text-slate-500">{new Date(sub.receivedAt).toLocaleDateString()}</span>
-                              <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-blue-500" />
-                            </div>
-                          </div>
-                        ))}
-                        {stageSubmissions.length === 0 && (
-                          <div className="py-8 text-center border-2 border-dashed border-slate-200 rounded-lg">
-                            <p className="text-[12px] text-slate-400 font-medium">No candidates in {stage.name}</p>
-                          </div>
-                        )}
-                      </div>
+            <div className="flex min-h-[420px] gap-4 pb-2">
+              {[...campaign.pipelineStages].sort((a, b) => a.orderIndex - b.orderIndex).map((stage) => {
+                const stageSubmissions = submissions.filter((s) => s.pipelineStage === stage.name);
+                return (
+                  <div key={stage.id} className="flex w-[300px] shrink-0 flex-col rounded-lg border border-slate-200 bg-slate-50">
+                    <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
+                      <h3 className="font-semibold text-slate-950">{stage.name}</h3>
+                      <Badge variant="outline">{stageSubmissions.length}</Badge>
                     </div>
-                  );
+                    <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                      {stageSubmissions.length === 0 ? (
+                        <div className="rounded-lg border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">No candidates</div>
+                      ) : stageSubmissions.map((sub) => (
+                        <button key={sub.id} type="button" onClick={() => navigate(candidateRoute(sub.id))} className="w-full rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-blue-200 hover:shadow-md">
+                          <div className="flex items-start justify-between gap-3">
+                            <span className="font-semibold text-slate-950">{safeCandidateLabel(sub, false)}</span>
+                            <StatusBadge className={scoreClasses(sub.matchScore)}>{sub.matchScore != null ? `${sub.matchScore}%` : 'New'}</StatusBadge>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                            {formatDate(sub.receivedAt)}
+                            <ChevronRight className="h-4 w-4" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
               })}
-              
-              {/* Native Rejected Column */}
-              <div className="min-w-[320px] w-[320px] max-w-[320px] bg-red-50/30 rounded-xl border border-red-100 shadow-sm flex flex-col max-h-[70vh] snap-start">
-                <div className="p-3 border-b border-red-100 bg-red-50/80 rounded-t-xl flex justify-between items-center">
-                  <h3 className="font-semibold text-[14px] text-red-800">Rejected</h3>
-                  <Badge variant="secondary" className="bg-red-100 text-red-600 border-none px-2">
-                    {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').length || 0}
-                  </Badge>
+              <div className="flex w-[300px] shrink-0 flex-col rounded-lg border border-rose-100 bg-rose-50/60">
+                <div className="flex items-center justify-between border-b border-rose-100 bg-rose-50 px-4 py-3">
+                  <h3 className="font-semibold text-rose-800">Rejected</h3>
+                  <Badge variant="outline" className="border-rose-200 bg-white text-rose-700">{rejectedCount}</Badge>
                 </div>
-                <div className="p-3 overflow-y-auto flex-1 space-y-3">
-                  {submissions?.filter((s: any) => s.pipelineStage === 'REJECTED').map((sub: any) => (
-                    <div key={sub.id} className="bg-white p-3 rounded-lg border border-red-200 shadow-xs opacity-75 hover:opacity-100 transition-opacity cursor-pointer group" onClick={() => navigate(`/candidates/${sub.id}`)}>
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-mono text-[13px] font-semibold text-slate-700">{sub.candidateLabel}</span>
-                      </div>
-                      <p className="text-[11px] text-red-600 font-medium truncate">{sub.rejectionReason || 'Rejected'}</p>
-                    </div>
+                <div className="space-y-3 p-3">
+                  {submissions.filter((s) => s.pipelineStage === 'REJECTED').map((sub) => (
+                    <button key={sub.id} type="button" onClick={() => navigate(candidateRoute(sub.id))} className="w-full rounded-lg border border-rose-100 bg-white p-3 text-left">
+                      <p className="font-semibold text-slate-950">{safeCandidateLabel(sub, false)}</p>
+                      <p className="mt-2 truncate text-xs text-rose-600">{sub.rejectionReason || 'Rejected'}</p>
+                    </button>
                   ))}
                 </div>
               </div>
             </div>
           ) : (
-            <div className="text-center py-20 bg-slate-50 rounded-xl border border-slate-200">
-              <AlertTriangle className="h-10 w-10 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-lg font-medium text-slate-900 mb-1">No custom pipeline configured</h3>
-              <p className="text-[13px] text-slate-500 max-w-md mx-auto">This campaign was created without custom pipeline stages. Candidates will remain in the 'SCREENED' stage.</p>
-            </div>
+            <EmptyState icon={<AlertTriangle className="h-5 w-5" />} title="No custom pipeline configured" description="This campaign was created without custom stages. Candidates remain in the default screening stage." />
           )}
-        </div>
+        </SectionCard>
       )}
 
       <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Candidate</DialogTitle>
-            <DialogDescription>Please provide a reason for rejecting this candidate.</DialogDescription>
+            <DialogTitle>Reject candidate</DialogTitle>
+            <DialogDescription>Provide a clear reason for this decision.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Rejection Reason</label>
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
-                rows={3}
-                placeholder="e.g. Lacks required years of experience..."
-              />
-            </div>
-          </div>
+          <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} className="min-h-[100px] rounded-lg border border-slate-200 p-3 text-sm outline-none focus:border-blue-500 focus:ring-3 focus:ring-blue-500/20" placeholder="Reason for rejection..." />
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRejectOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>Cancel</Button>
             <Button variant="destructive" disabled={!rejectReason || rejectMutation.isPending} onClick={() => rejectCandidateId && rejectMutation.mutate({ subId: rejectCandidateId, reason: rejectReason })}>
-              {rejectMutation.isPending ? 'Rejecting...' : 'Reject Candidate'}
+              {rejectMutation.isPending ? 'Rejecting...' : 'Reject candidate'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {user?.role === 'ADMIN' && campaign.status === 'ARCHIVED' && (
-        <div className="mt-8 border border-red-200 rounded-xl overflow-hidden shadow-sm bg-white">
-          <div className="bg-red-50 px-5 py-4 border-b border-red-200">
-            <h3 className="text-lg font-semibold text-red-900 flex items-center">
-              <ShieldAlert className="mr-2 h-5 w-5 text-red-600" /> Danger Zone
-            </h3>
-          </div>
-          <div className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <SectionCard title="Danger zone" description="Permanent deletion removes campaign records from the campaign service." className="border-rose-200" contentClassName="p-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <h4 className="text-sm font-semibold text-slate-900">Delete this campaign permanently</h4>
-              <p className="text-sm text-slate-500 mt-1">
-                Once deleted, all candidate submissions, anonymized profiles, and match scores will be permanently deleted and cannot be recovered.
-              </p>
+              <h4 className="font-semibold text-slate-950">Delete this campaign</h4>
+              <p className="mt-1 text-sm leading-6 text-slate-500">This action is irreversible. Type the campaign title to confirm.</p>
             </div>
             <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
               <DialogTrigger asChild>
-                <Button variant="destructive" className="bg-red-600 hover:bg-red-700 text-white font-medium flex items-center shadow-sm">
-                  Delete Campaign
-                </Button>
+                <Button variant="destructive"><ShieldAlert className="h-4 w-4" /> Delete campaign</Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md bg-white rounded-xl shadow-2xl w-full">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle className="text-red-700 flex items-center">
-                    <ShieldAlert className="mr-2 h-5 w-5" /> Permanent Deletion Confirmation
-                  </DialogTitle>
-                  <DialogDescription className="pt-2 text-slate-600 leading-relaxed">
-                    This action is destructive and irreversible. You are deleting <strong className="text-slate-900">{campaign.title}</strong>, including all associated candidate profiles and match scores.
-                  </DialogDescription>
+                  <DialogTitle className="text-rose-700">Delete campaign permanently</DialogTitle>
+                  <DialogDescription>Type <strong>{campaign.title}</strong> to confirm deletion.</DialogDescription>
                 </DialogHeader>
-                <div className="py-4 space-y-3">
-                  <p className="text-sm text-slate-600 font-medium">
-                    To confirm deletion, please type the campaign title exactly:
-                  </p>
-                  <code className="block bg-slate-100 p-2 rounded text-slate-700 text-sm border font-mono">
-                    {campaign.title}
-                  </code>
-                  <input
-                    type="text"
-                    value={confirmTitle}
-                    onChange={(e) => setConfirmTitle(e.target.value)}
-                    placeholder="Type campaign title exactly"
-                    className="w-full px-3 py-2 border rounded-md text-sm outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  />
-                </div>
-                <DialogFooter className="flex justify-end gap-2 mt-2">
-                  <Button variant="ghost" onClick={() => { setDeleteOpen(false); setConfirmTitle(''); }}>Cancel</Button>
-                  <Button
-                    onClick={() => deleteMutation.mutate()}
-                    disabled={confirmTitle !== campaign.title || deleteMutation.isPending}
-                    className="bg-red-600 hover:bg-red-700 text-white disabled:bg-slate-200 disabled:text-slate-400 font-medium shadow-sm"
-                  >
-                    {deleteMutation.isPending ? "Deleting..." : "Permanently Delete"}
+                <Input value={confirmTitle} onChange={(e) => setConfirmTitle(e.target.value)} placeholder="Type campaign title" />
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => { setDeleteOpen(false); setConfirmTitle(''); }}>Cancel</Button>
+                  <Button variant="destructive" onClick={() => deleteMutation.mutate()} disabled={confirmTitle !== campaign.title || deleteMutation.isPending}>
+                    {deleteMutation.isPending ? 'Deleting...' : 'Delete permanently'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
-        </div>
+        </SectionCard>
       )}
     </div>
   );

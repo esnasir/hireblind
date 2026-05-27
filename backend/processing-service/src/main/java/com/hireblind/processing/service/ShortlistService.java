@@ -38,15 +38,17 @@ public class ShortlistService {
     private final String auditServiceUrl;
 
     public ShortlistService(SubmissionRepository submissionRepository, JwtUtil jwtUtil, 
+                            WebClient.Builder webClientBuilder,
+                            RestTemplate restTemplate,
                             @Value("${campaign.service.url}") String campaignServiceUrl,
                             @Value("${audit.service.url}") String auditServiceUrl,
                             JavaMailSender mailSender) {
         this.submissionRepository = submissionRepository;
         this.jwtUtil = jwtUtil;
-        this.webClient = WebClient.builder().baseUrl(campaignServiceUrl).build();
+        this.webClient = webClientBuilder.baseUrl(campaignServiceUrl).build();
         this.auditServiceUrl = auditServiceUrl;
         this.mailSender = mailSender;
-        this.restTemplate = new RestTemplate();
+        this.restTemplate = restTemplate;
     }
 
     public void processCampaignShortlist(UUID campaignId, String actorEmail) {

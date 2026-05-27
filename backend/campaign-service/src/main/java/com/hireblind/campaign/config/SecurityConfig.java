@@ -35,11 +35,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/campaigns/public/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/campaigns").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/campaigns/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/campaigns/*/activate").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/campaigns/*/close").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/campaigns/*/archive").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/campaigns").hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.PATCH, "/campaigns/**").hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.POST, "/campaigns/*/activate").hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.POST, "/campaigns/*/close").hasAnyRole("ADMIN", "OWNER")
+                        .requestMatchers(HttpMethod.POST, "/campaigns/*/archive").hasAnyRole("ADMIN", "OWNER")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

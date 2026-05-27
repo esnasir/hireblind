@@ -45,7 +45,7 @@ public class TeamService {
         invitee.setEmail(request.email());
         invitee.setFullName(request.fullName());
         invitee.setRole(Role.valueOf(request.role().toUpperCase()));
-        invitee.setPasswordHash("INVITED_NO_PASSWORD"); // Temporary
+        invitee.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString())); // Temporary secure random hash
         invitee.setTenant(inviter.getTenant());
         invitee.setInvitedBy(inviter);
         invitee.setStatus("INVITED");

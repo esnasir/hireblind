@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
 import LandingPage from './pages/LandingPage';
@@ -29,11 +29,22 @@ import ProfileSettings from './pages/settings/ProfileSettings';
 import CompanySettings from './pages/settings/CompanySettings';
 import Candidates from './pages/Candidates';
 
+function LegacyCampaignRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/jobs/${id}` : '/jobs'} replace />;
+}
+
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
   const isAuthorized = user?.role === 'ADMIN' || user?.role === 'OWNER';
   return isAuthorized ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const token = useAuthStore((s) => s.accessToken);
+  if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
 
 function App() {
   return (
@@ -44,8 +55,10 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/apply/:slug" element={<PublicApplication />} />
+          <Route path="/campaigns" element={<LegacyCampaignRedirect />} />
+          <Route path="/campaigns/:id" element={<LegacyCampaignRedirect />} />
           
-          <Route element={<AppLayout />}>
+          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/jobs" element={<Campaigns />} />
             <Route path="/jobs/new" element={<CreateCampaign />} />

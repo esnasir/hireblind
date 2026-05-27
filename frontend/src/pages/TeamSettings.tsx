@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Mail, Plus, ShieldAlert, ShieldCheck, Users } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuthStore } from '../store/authStore';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Skeleton } from '../components/ui/skeleton';
-import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Users, Mail, ShieldAlert, Plus, ShieldCheck } from 'lucide-react';
+import { EmptyState, PageHeader, SectionCard, StatusBadge } from '../components/ui/page';
+import { formatDate, initialsFrom, statusClasses, titleCaseStatus } from '../lib/display';
+
+interface TeamMember {
+  id: string;
+  fullName?: string;
+  email: string;
+  role: string;
+  status?: string;
+  createdAt?: string;
+}
 
 export default function TeamSettings() {
   const { user } = useAuthStore();
@@ -18,10 +26,10 @@ export default function TeamSettings() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFullName, setInviteFullName] = useState('');
   const [inviteRole, setInviteRole] = useState<'RECRUITER' | 'ADMIN'>('RECRUITER');
-  
-  const { data: teamMembers, isLoading } = useQuery({
+
+  const { data: teamMembers, isLoading } = useQuery<TeamMember[]>({
     queryKey: ['team'],
-    queryFn: () => api.get('/iam/team').then(res => res.data),
+    queryFn: () => api.get('/iam/team').then((res) => res.data),
   });
 
   const inviteMutation = useMutation({
@@ -41,126 +49,101 @@ export default function TeamSettings() {
 
   if (user?.role !== 'ADMIN' && user?.role !== 'OWNER') {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <ShieldAlert className="h-12 w-12 text-slate-300 mb-4" />
-        <h2 className="text-xl font-bold text-slate-900">Access Denied</h2>
-        <p className="text-slate-500 mt-2">Only administrators can manage the team.</p>
+      <div className="flex min-h-[55vh] flex-col items-center justify-center text-center">
+        <ShieldAlert className="mb-4 h-10 w-10 text-slate-300" />
+        <h2 className="text-xl font-semibold text-slate-950">Access denied</h2>
+        <p className="mt-2 text-sm text-slate-500">Only administrators and owners can manage team members.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Team Management</h1>
-          <p className="text-slate-500 mt-1">Manage recruiters, reviewers, and platform administrators.</p>
-        </div>
-        <Button onClick={() => setInviteOpen(true)} className="bg-slate-900 hover:bg-slate-800 text-white flex items-center">
-          <Plus className="mr-2 h-4 w-4" /> Invite Member
-        </Button>
-      </div>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Workspace"
+        title="Team"
+        description="Invite teammates and manage access to candidate review workflows."
+        action={
+          <Button onClick={() => setInviteOpen(true)} className="bg-slate-950 text-white hover:bg-slate-800">
+            <Plus className="h-4 w-4" /> Invite member
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-slate-500" />
-            <h2 className="text-lg font-semibold text-slate-900">Active Members & Invitations</h2>
-          </div>
-        </div>
-
+      <SectionCard title="Members and invitations" description="Roles determine who can manage jobs, view candidates, and reveal identities." contentClassName="p-0">
         {isLoading ? (
-          <div className="p-6 space-y-4">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
+          <div className="p-8 text-sm text-slate-500">Loading team...</div>
+        ) : !teamMembers || teamMembers.length === 0 ? (
+          <EmptyState
+            icon={<Users className="h-5 w-5" />}
+            title="No team members"
+            description="Invite recruiters and administrators to collaborate on hiring campaigns."
+            action={<Button onClick={() => setInviteOpen(true)} className="bg-slate-950 text-white hover:bg-slate-800"><Plus className="h-4 w-4" /> Invite member</Button>}
+          />
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50">
-                <TableHead>User</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {teamMembers?.map((member: any) => (
-                <TableRow key={member.id} className="hover:bg-slate-50/50">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-semibold border border-slate-200 shadow-xs">
-                        {member.fullName ? member.fullName.charAt(0).toUpperCase() : member.email.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-medium text-slate-900 text-[14px]">
-                          {member.fullName || 'Pending...'}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">User</th>
+                  <th className="px-5 py-3">Role</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Joined</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {teamMembers?.map((member) => (
+                  <tr key={member.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-sm font-semibold text-slate-700">
+                          {initialsFrom(member.fullName || member.email, 'U')}
                         </div>
-                        <div className="text-slate-500 text-[12px] flex items-center gap-1">
-                          <Mail className="h-3 w-3" /> {member.email}
+                        <div>
+                          <div className="font-medium text-slate-950">{member.fullName || 'Pending invite'}</div>
+                          <div className="flex items-center gap-1 text-xs text-slate-500"><Mail className="h-3 w-3" /> {member.email}</div>
                         </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      {member.role === 'ADMIN' || member.role === 'OWNER' ? (
-                        <ShieldCheck className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <Users className="h-4 w-4 text-slate-400" />
-                      )}
-                      <span className="text-sm font-medium text-slate-700 capitalize">{member.role.toLowerCase()}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`font-medium ${
-                      member.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                      member.status === 'INVITED' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'
-                    }`}>
-                      {member.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-slate-500 text-sm">
-                    {new Date(member.createdAt).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-2 text-slate-700">
+                        {member.role === 'ADMIN' || member.role === 'OWNER' ? <ShieldCheck className="h-4 w-4 text-blue-700" /> : <Users className="h-4 w-4 text-slate-400" />}
+                        <span>{titleCaseStatus(member.role)}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4">
+                      <StatusBadge className={statusClasses(member.status)}>{titleCaseStatus(member.status)}</StatusBadge>
+                    </td>
+                    <td className="px-5 py-4 text-slate-500">{formatDate(member.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </SectionCard>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>Invite Team Member</DialogTitle>
+            <DialogTitle>Invite team member</DialogTitle>
             <DialogDescription>
-              Send an invitation email to a new recruiter or administrator to join your organization.
+              Send an invitation to a recruiter or administrator in your organization.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Full Name</label>
-              <Input
-                value={inviteFullName}
-                onChange={(e) => setInviteFullName(e.target.value)}
-                placeholder="Jane Doe"
-                className="w-full h-11"
-              />
+              <label className="text-sm font-medium text-slate-700" htmlFor="inviteName">Full name</label>
+              <Input id="inviteName" value={inviteFullName} onChange={(e) => setInviteFullName(e.target.value)} placeholder="Jane Doe" className="h-10" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email address <span className="text-red-500">*</span></label>
-              <Input
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="jane@example.com"
-                type="email"
-                className="w-full h-11"
-              />
+              <label className="text-sm font-medium text-slate-700" htmlFor="inviteEmail">Email address <span className="text-rose-600">*</span></label>
+              <Input id="inviteEmail" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="jane@example.com" type="email" className="h-10" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Role</label>
-              <Select value={inviteRole} onValueChange={(val: any) => setInviteRole(val)}>
-                <SelectTrigger className="w-full h-11">
+              <Select value={inviteRole} onValueChange={(val) => setInviteRole(val as 'RECRUITER' | 'ADMIN')}>
+                <SelectTrigger className="h-10 w-full">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -168,19 +151,13 @@ export default function TeamSettings() {
                   <SelectItem value="ADMIN">Administrator</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                Recruiters can view and process candidates. Administrators can also manage team members, create jobs, and reveal candidate identities.
-              </p>
+              <p className="text-xs leading-5 text-slate-500">Administrators can manage team members and reveal candidate identities. Recruiters cannot reveal identities.</p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setInviteOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={() => inviteMutation.mutate()} 
-              disabled={!inviteEmail || inviteMutation.isPending}
-              className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
-            >
-              {inviteMutation.isPending ? 'Sending Invite...' : 'Send Invitation'}
+            <Button onClick={() => inviteMutation.mutate()} disabled={!inviteEmail || inviteMutation.isPending} className="bg-slate-950 text-white hover:bg-slate-800">
+              {inviteMutation.isPending ? 'Sending...' : 'Send invitation'}
             </Button>
           </DialogFooter>
         </DialogContent>

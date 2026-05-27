@@ -37,7 +37,15 @@ class ShortlistServiceTest {
 
     @BeforeEach
     void setUp() {
-        shortlistService = spy(new ShortlistService(submissionRepository, jwtUtil, "http://dummy-campaign", "http://dummy-audit", mailSender));
+        shortlistService = spy(new ShortlistService(
+                submissionRepository, 
+                jwtUtil, 
+                org.springframework.web.reactive.function.client.WebClient.builder(), 
+                new org.springframework.web.client.RestTemplate(), 
+                "http://dummy-campaign", 
+                "http://dummy-audit", 
+                mailSender
+        ));
     }
 
     @Test

@@ -21,10 +21,17 @@ spring:
           filters:
             - StripPrefix=1
 
-        - id: processing-service-campaigns
-          uri: ${PROCESSING_SERVICE_URL:http://localhost:8083}
+        - id: iam-service-users
+          uri: ${IAM_SERVICE_URL:http://localhost:8081}
           predicates:
-            - Path=/api/campaigns/*/shortlist/**
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+
+        - id: iam-service-tenants
+          uri: ${IAM_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/tenants/**
           filters:
             - StripPrefix=1
 
@@ -79,5 +86,8 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [correlationId=%X{correlationId}] - %msg%n"
   level:
-    com.hireblind.gateway: DEBUG
-    org.springframework.cloud.gateway: DEBUG
+    com.hireblind.gateway: INFO
+    org.springframework.cloud.gateway: WARN
+
+jwt:
+  secret: ${JWT_SECRET:hireblind-phase1-shared-hmac-secret-key-that-is-at-least-256-bits-long}

@@ -1,5 +1,6 @@
 package com.hireblind.iam.controller;
 
+import com.hireblind.iam.dto.TenantResponse;
 import com.hireblind.iam.dto.UpdateTenantRequest;
 import com.hireblind.iam.entity.Tenant;
 import com.hireblind.iam.entity.User;
@@ -26,7 +27,7 @@ public class TenantController {
     }
 
     @PutMapping("/me")
-    public ResponseEntity<?> updateTenant(
+    public ResponseEntity<TenantResponse> updateTenant(
             Authentication authentication,
             @RequestBody UpdateTenantRequest request
     ) {
@@ -37,11 +38,21 @@ public class TenantController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
                 
         if (user.getTenant() == null) {
-            return ResponseEntity.badRequest().body("User does not belong to a tenant");
+            throw new IllegalArgumentException("User does not belong to a tenant");
         }
 
         Tenant updated = authService.updateTenant(user.getTenant().getId().toString(), request);
         
-        return ResponseEntity.ok().body(java.util.Map.of("companyName", updated.getCompanyName()));
+        TenantResponse response = new TenantResponse(
+                updated.getId(),
+                updated.getCompanyName(),
+                updated.getSlug(),
+                updated.getCompanySize(),
+                updated.getIndustry(),
+                updated.getWebsite(),
+                updated.getLogoUrl(),
+                updated.getCreatedAt()
+        );
+        return ResponseEntity.ok().body(response);
     }
 }

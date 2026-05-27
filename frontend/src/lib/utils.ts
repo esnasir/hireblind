@@ -20,7 +20,7 @@ export function formatActorName(emailOrId: string | null | undefined): string {
   }
   // Otherwise format the email clean name
   if (clean.includes('@')) {
-    const parts = clean.split('@')[0].split(/[._\-]+/);
+    const parts = clean.split('@')[0].split(/[._-]+/);
     return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
   }
   return emailOrId;

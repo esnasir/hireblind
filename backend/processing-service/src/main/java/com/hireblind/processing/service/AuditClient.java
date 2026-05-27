@@ -22,12 +22,13 @@ public class AuditClient {
     private final ObjectMapper objectMapper;
     private final String auditServiceUrl;
 
-    public AuditClient(JwtUtil jwtUtil,
+    public AuditClient(RestTemplate restTemplate,
+                       JwtUtil jwtUtil,
                        ObjectMapper objectMapper,
                        @Value("${audit.service.url}") String auditServiceUrl) {
+        this.restTemplate = restTemplate;
         this.jwtUtil = jwtUtil;
         this.objectMapper = objectMapper;
-        this.restTemplate = new RestTemplate();
         this.auditServiceUrl = auditServiceUrl;
     }
 

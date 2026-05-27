@@ -27,6 +27,11 @@ import java.util.Optional;
  *   2. New user    + no companyName    → return requiresRegistration map (428)
  *   3. New user    + companyName given → create tenant + user as ACTIVE → issue JWT → return LoginResponse (200)
  */
+import com.hireblind.iam.dto.GoogleAuthResult;
+import com.hireblind.iam.dto.GoogleRegistrationPrompt;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import java.util.UUID;
+
 @Service
 public class GoogleAuthService {
 
@@ -35,17 +40,20 @@ public class GoogleAuthService {
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
     private final JwtService jwtService;
+    private final PasswordEncoder passwordEncoder;
 
     public GoogleAuthService(
             UserRepository userRepository,
             TenantRepository tenantRepository,
-            JwtService jwtService) {
+            JwtService jwtService,
+            PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    public Object authenticateWithGoogle(GoogleAuthRequest request) {
+    public GoogleAuthResult authenticateWithGoogle(GoogleAuthRequest request) {
         GoogleUserInfo googleUser = fetchGoogleUserInfo(request.credential());
 
         if (googleUser == null || googleUser.email() == null) {
@@ -78,10 +86,10 @@ public class GoogleAuthService {
         // ── Case 2: New user, no company name yet ────────────────────────────────
         if (request.companyName() == null || request.companyName().isBlank()) {
             log.info("New Google user — company name required: {}", googleUser.email());
-            return Map.of(
-                "requiresRegistration", true,
-                "email", googleUser.email(),
-                "name",  googleUser.name() != null ? googleUser.name() : ""
+            return new GoogleRegistrationPrompt(
+                true,
+                googleUser.email(),
+                googleUser.name() != null ? googleUser.name() : ""
             );
         }
 
@@ -95,7 +103,7 @@ public class GoogleAuthService {
 
         User user = new User();
         user.setEmail(googleUser.email());
-        user.setPasswordHash("GOOGLE_OAUTH_NO_PASSWORD"); // not used — Google is the auth provider
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString())); // not used — Google is the auth provider, hashed random password is secure
         user.setFullName(googleUser.name() != null ? googleUser.name() : googleUser.email());
         user.setAvatarUrl(googleUser.picture());
         user.setRole(Role.OWNER);

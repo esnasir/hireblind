@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping
+@RequestMapping("/submissions")
 public class ShortlistController {
 
     private final ShortlistService shortlistService;
@@ -27,7 +27,7 @@ public class ShortlistController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/submissions/{id}/shortlist/approve-buffer")
+    @PostMapping("/{id}/shortlist/approve-buffer")
     @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER')")
     public ResponseEntity<Void> approveBufferCandidate(@PathVariable UUID id, Authentication auth) {
         String actorEmail = auth.getName();
@@ -35,7 +35,7 @@ public class ShortlistController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/submissions/{id}/shortlist/reject")
+    @PostMapping("/{id}/shortlist/reject")
     @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER')")
     public ResponseEntity<Void> rejectCandidate(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         String reason = body.get("reason");
@@ -43,7 +43,7 @@ public class ShortlistController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/submissions/{id}/promote")
+    @PostMapping("/{id}/promote")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> promoteToPrimary(@PathVariable UUID id, Authentication auth) {
         String actorEmail = auth.getName();
@@ -51,7 +51,7 @@ public class ShortlistController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping("/submissions/{id}/shortlist")
+    @PostMapping("/{id}/shortlist")
     @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER')")
     public ResponseEntity<Void> shortlistSingleCandidate(
             @PathVariable UUID id,

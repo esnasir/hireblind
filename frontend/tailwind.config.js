@@ -11,12 +11,29 @@ export default {
       serif: ['"EB Garamond"', 'Georgia', 'ui-serif', 'serif'],
     },
     extend: {
+      fontSize: {
+        'xs':   ['11px', { lineHeight: '16px' }],
+        'sm':   ['13px', { lineHeight: '20px' }],
+        'base': ['14px', { lineHeight: '22px' }],
+        'md':   ['15px', { lineHeight: '24px' }],
+        'lg':   ['17px', { lineHeight: '26px' }],
+        'xl':   ['20px', { lineHeight: '28px' }],
+        '2xl':  ['24px', { lineHeight: '32px' }],
+        '3xl':  ['30px', { lineHeight: '38px' }],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
+        brand: {
+          50:  '#f0f4ff',
+          100: '#e0eaff',
+          500: '#4f6ef7',
+          600: '#3b55e6',
+          700: '#2d43c7',
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
